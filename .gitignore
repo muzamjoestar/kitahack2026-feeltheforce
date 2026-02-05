@@ -1,0 +1,19 @@
+# --- Python (BACKEND) ---
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# --- Flutter (FRONTEND) ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub-cache/
+.pub/
+android/.gradle
+ios/.symlinks
+
+# --- OS Junk ---
+.DS_Store
+Thumbs.db
