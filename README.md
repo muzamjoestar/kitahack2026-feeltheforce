@@ -25,7 +25,7 @@ We utilized a modern, scalable architecture powered by Google technologies:
 | Component | Technology | Description |
 | :--- | :--- | :--- |
 | **Mobile App** | **Flutter** | Cross-platform UI (Android/iOS) |
-| **Brain (AI)** | **Gemini 2.0 Flash** | ID Card verification & Fraud detection |
+| **Brain (AI)** | **Gemini 3 Flash Preview** | ID Card verification & Fraud detection |
 | **Backend API** | **FastAPI (Python)** | High-speed orchestration layer |
 | **Database** | **Firebase Firestore** | Real-time NoSQL database |
 | **Tunneling** | **Ngrok** | Secure exposure of local AI server |
