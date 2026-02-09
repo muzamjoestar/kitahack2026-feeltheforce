@@ -35,7 +35,7 @@ async def verify_matric_card(file: UploadFile = File(...),
     if "error" in raw_extracted:
         print(f"🚨 DEBUG ERROR: {raw_extracted['error']}") 
         
-        # 👇 OPTIONAL: Send the real error to the frontend to see it in Swagger
+        # Send the real error to the frontend to see it in Swagger
         return MatricCardResponse(valid=False, message=f"Error: {raw_extracted['error']}")
     
     if raw_extracted.get("valid") is True:
