@@ -17,3 +17,6 @@ ios/.symlinks
 # --- OS Junk ---
 .DS_Store
 Thumbs.db
+
+# --- Miscellaneous ---
+gitvscode.md
