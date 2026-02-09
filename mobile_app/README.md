@@ -12,3 +12,5 @@ A brief summary of what this project does and which SDG (Sustainable Development
 1. Clone the repo
 2. Insert API keys in `.env`
 3. Run `[command]`
+
+muzam hensem
