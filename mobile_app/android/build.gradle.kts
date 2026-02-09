@@ -22,16 +22,3 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty("android")) {
-            project.android {
-                // If a library is missing a namespace (like uni_links),
-                // we give it a temporary one based on its folder name.
-                if (namespace == null) {
-                    namespace "com.example.${project.name}"
-                }
-            }
-        }
-    }
-}
