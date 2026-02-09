@@ -112,3 +112,97 @@ Just click the small text button that appears above the code:
 `Accept Current Change` or `Accept Incoming Change`.
 
 ---
+
+## 9(a). Handling Secrets (API Keys)
+### The `.env` vs `.env.template` Rule
+
+**The Problem:** You have a Gemini API Key. You want to share code, but **NOT** the key.
+
+1.  **`.env`** (🛑 **SECRET**):
+    * Contains: `API_KEY=AIzaSy...`
+    * **NEVER commit this file.** (Add it to `.gitignore`).
+
+2.  **`.env.template`** (✅ **SAFE**):
+    * Contains: `API_KEY=` (Empty value).
+    * **Commit this file.**
+    * *Why?* It tells teammates: "You need a key here to run this."
+
+---
+
+
+## 9(b). Keeping it Clean (Ignore the Junk)
+
+Don't upload 50,000 files by accident!
+
+1.  **`venv/`** (🛑 **IGNORE**):
+    * Your "Virtual Environment" folder.
+    * It's huge and specific to *your* laptop. **Never commit.**
+
+2.  **`.gitignore`** (⚙️ **THE GUARD**):
+    * A text file that lists folders like `venv/` and `.env`.
+    * Git automatically ignores anything listed here.
+
+3.  **`README.md`** (📖 **THE MANUAL**):
+    * Instructions on how to run your code.
+    * *Always write this for your future self!*
+
+
+---
+
+## 9(c). DOs and DON'Ts (Crucial!)
+
+| ✅ DO | ❌ DON'T |
+| :--- | :--- |
+| **Pull** before you start coding every day. | **Commit** `node_modules` or `.env` files. |
+| Write **clear messages** (e.g., "Added logo"). | Write **vague messages** (e.g., "update" or "fix"). |
+| use `.gitignore` to hide junk files. | **Force Push** unless you are 100% sure. |
+
+---
+## 10. Troubleshooting: "Who are you?"
+
+**Error:** `Please tell me who you are.`
+**Reason:** Git doesn't know your name yet.
+
+**The Fix (Run in Terminal once):**
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your@email.com"
+```
+
+---
+
+## 9. Troubleshooting: "Permission Denied"
+
+**Error:** `Permission denied (publickey)` or `Authentication failed`.
+**Reason:** VS Code isn't logged into GitHub.
+
+**The Fix:**
+1.  Look for the **Accounts** icon (Person icon) at the bottom-left sidebar.
+2.  Click "Sign in to Sync Settings" or check for an alert.
+3.  Select **Sign in with GitHub**.
+4.  Follow the browser popup to authorize.
+
+---
+
+## 10. Troubleshooting: Merge Conflicts
+
+**Error:** `CONFLICT (content): Merge conflict in...`
+**Reason:** Two people changed the same line.
+
+**The Fix (Don't Panic):**
+1.  Open the file with the conflict (it will be red in the list).
+2.  Look for the highlighted colors (Green vs Blue).
+3.  Click **Accept Incoming Change** (Their code) or **Accept Current Change** (Your code).
+4.  Save and Commit.
+
+
+
+---
+
+## 11. The Emergency Output Panel
+
+If Git is acting weird and you don't know why:
+
+1.  Press `Ctrl + Shift + U` to open the **Output** panel.
+2.  In the dropdown (top-right of the panel), select **Git**.
+3.  Read the last few lines—it will tell you exactly what command failed.
