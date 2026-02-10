@@ -149,6 +149,8 @@ How do we actually take what the user types and send it to the cloud?
 2.  **Trigger:** Wait for the user to click a button (e.g., "Submit").
 3.  **Action:** Call the `add()` function on your Firestore collection.
 
+---
+
 > **Analogy:**
 > * **Text Box:** The Mailbox.
 > * **Controller:** The Hand that grabs the letter.
