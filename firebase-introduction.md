@@ -136,3 +136,77 @@ service cloud.firestore {
     }
   }
 }
+
+---
+
+## 8. The Logic: "Get Text -> Save to DB"
+
+How do we actually take what the user types and send it to the cloud?
+
+**The 3-Step Process:**
+1.  **Controller:** Create a variable to "watch" the text box.
+2.  **Trigger:** Wait for the user to click a button (e.g., "Submit").
+3.  **Action:** Call the `add()` function on your Firestore collection.
+
+> **Analogy:**
+> * **Text Box:** The Mailbox.
+> * **Controller:** The Hand that grabs the letter.
+> * **Firestore:** The Post Office.
+
+---
+
+## 9a. Example: Web (JavaScript)
+
+Storing a user's `name` and `age` from HTML inputs.
+
+```html
+<input type="text" id="nameInput" placeholder="Name">
+<input type="number" id="ageInput" placeholder="Age">
+<button onclick="saveData()">Save</button>
+
+<script>
+  // JavaScript
+  async function saveData() {
+    // 1. Get values from the inputs
+    const name = document.getElementById("nameInput").value;
+    const age = document.getElementById("ageInput").value;
+
+    // 2. Send to Firestore
+    await db.collection("students").add({
+      full_name: name,
+      age: parseInt(age),
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    alert("Saved!");
+  }
+</script>
+
+---
+
+9b. Example: Flutter (Dart)
+Storing a Todo item from a TextField.
+
+Dart
+// 1. Create a Controller
+final TextEditingController _todoController = TextEditingController();
+
+// 2. The Button Function
+void _saveTask() async {
+  String taskName = _todoController.text; // <--- Get the text
+
+  // 3. Send to Firestore
+  await FirebaseFirestore.instance.collection('todos').add({
+    'task': taskName,
+    'is_done': false,
+    'created_at': FieldValue.serverTimestamp(),
+  });
+
+  _todoController.clear(); // Clear the box after saving
+}
+
+// UI Snippet
+TextField(controller: _todoController, decoration: InputDecoration(hintText: "Enter task"));
+ElevatedButton(onPressed: _saveTask, child: Text("Save Task"));
+
+---
