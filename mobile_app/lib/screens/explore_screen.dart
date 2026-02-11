@@ -526,6 +526,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  // FIX: Removed the extra "Open Now" tag to prevent Overflow
                   Row(
                     children: [
                       Icon(Icons.star_rounded, color: UColors.gold, size: 16),
@@ -555,24 +556,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           ),
                         ),
                       ),
-                      const Spacer(),
-                      if (p.openNow)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: UColors.success.withAlpha(20),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: UColors.success.withAlpha(90)),
-                          ),
-                          child: const Text(
-                            "Open now",
-                            style: TextStyle(
-                              color: UColors.success,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
                     ],
                   )
                 ],
