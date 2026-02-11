@@ -1,10 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ui/uniserve_ui.dart';
 import '../theme/colors.dart';
-
-enum TxType { topup, spend }
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -14,142 +13,185 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  final amountCtrl = TextEditingController(text: "10");
-  final noteCtrl = TextEditingController();
-  final searchCtrl = TextEditingController();
+  static const _kBalanceKey = 'wallet_balance_v1';
+  static const _kTxKey = 'wallet_txs_v1';
 
-  double balance = 0.0;
+  double balance = 39.50;
+  final List<_WalletTx> txs = [];
+
   bool loading = false;
-  bool hideBalance = false;
 
-  TxTypeFilter filter = TxTypeFilter.all;
+  // Quick topup presets
+  final List<int> presets = const [5, 10, 20, 50];
 
-  // attachment (web-safe: we keep only name)
-  String? attachedFileName;
+  // manual amount
+  final TextEditingController amountCtrl = TextEditingController(text: "3");
 
-  final List<_Tx> txs = [];
+  @override
+  void initState() {
+    super.initState();
+    _loadLocal();
+  }
 
   @override
   void dispose() {
     amountCtrl.dispose();
-    noteCtrl.dispose();
-    searchCtrl.dispose();
     super.dispose();
   }
 
-  // ---------- Actions ----------
-  Future<void> _pickReceipt() async {
+  // ================== PERSIST ==================
+  Future<void> _loadLocal() async {
+    setState(() => loading = true);
     try {
-      final res = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        withData: false,
-      );
-      if (!mounted) return;
-      if (res == null || res.files.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
 
-      setState(() => attachedFileName = res.files.single.name);
-      _toast("Attached: ${res.files.single.name}");
-    } catch (e) {
-      _toast("File picker error: $e");
+      final b = prefs.getDouble(_kBalanceKey);
+      final raw = prefs.getString(_kTxKey);
+
+      final loadedTxs = <_WalletTx>[];
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw);
+        if (list is List) {
+          for (final e in list) {
+            if (e is Map<String, dynamic>) {
+              loadedTxs.add(_WalletTx.fromJson(e));
+            } else if (e is Map) {
+              loadedTxs.add(_WalletTx.fromJson(Map<String, dynamic>.from(e)));
+            }
+          }
+        }
+      }
+
+      setState(() {
+        if (b != null) balance = b;
+        txs
+          ..clear()
+          ..addAll(loadedTxs);
+      });
+    } catch (_) {
+      // kalau error, just fallback to default state
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
+  }
+
+  Future<void> _saveLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_kBalanceKey, balance);
+      final raw = jsonEncode(txs.map((e) => e.toJson()).toList());
+      await prefs.setString(_kTxKey, raw);
+    } catch (_) {
+      // ignore silently
+    }
+  }
+
+  // ================== ACTIONS ==================
+  double _amountFromField() {
+    final v = double.tryParse(amountCtrl.text.trim());
+    if (v == null) return 0;
+    if (v.isNaN || v.isInfinite) return 0;
+    return v <= 0 ? 0 : v;
   }
 
   Future<void> _topup(double amount) async {
     if (amount <= 0) {
-      _toast("Enter valid amount");
+      _toast("Enter valid amount.");
       return;
     }
+
     setState(() => loading = true);
-
-    await Future.delayed(const Duration(milliseconds: 650)); // simulate processing
-    if (!mounted) return;
-
-    setState(() {
-      balance += amount;
-      txs.insert(
-        0,
-        _Tx(
-          type: TxType.topup,
-          title: "Topup",
-          subtitle: _niceNote(noteCtrl.text),
-          amount: amount,
-          time: DateTime.now(),
-          attachmentName: attachedFileName,
-        ),
-      );
-
-      loading = false;
-      noteCtrl.clear();
-      attachedFileName = null;
-    });
-
-    _toast("Topup RM${amount.toStringAsFixed(2)} ✅");
+    try {
+      setState(() {
+        balance += amount;
+        txs.insert(
+          0,
+          _WalletTx(
+            type: _TxType.topup,
+            amount: amount,
+            title: "Top up",
+            subtitle: "Wallet reload",
+            at: DateTime.now(),
+          ),
+        );
+        if (txs.length > 80) txs.removeRange(80, txs.length);
+      });
+      await _saveLocal();
+      _toast("Topup success ✅");
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> _spend(double amount) async {
     if (amount <= 0) {
-      _toast("Enter valid amount");
+      _toast("Enter valid amount.");
       return;
     }
     if (amount > balance) {
-      _toast("Insufficient balance");
+      _toast("Insufficient balance.");
       return;
     }
 
     setState(() => loading = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-
-    setState(() {
-      balance -= amount;
-      txs.insert(
-        0,
-        _Tx(
-          type: TxType.spend,
-          title: "Payment",
-          subtitle: _niceNote(noteCtrl.text.isEmpty ? "Service payment" : noteCtrl.text),
-          amount: amount,
-          time: DateTime.now(),
-          attachmentName: attachedFileName,
-        ),
-      );
-
-      loading = false;
-      noteCtrl.clear();
-      attachedFileName = null;
-    });
-
-    _toast("Paid RM${amount.toStringAsFixed(2)} ✅");
+    try {
+      setState(() {
+        balance -= amount;
+        txs.insert(
+          0,
+          _WalletTx(
+            type: _TxType.spend,
+            amount: amount,
+            title: "Payment",
+            subtitle: "Service payment",
+            at: DateTime.now(),
+          ),
+        );
+        if (txs.length > 80) txs.removeRange(80, txs.length);
+      });
+      await _saveLocal();
+      _toast("Paid ✅");
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
-  void _clearHistory() {
-    setState(() => txs.clear());
-    _toast("History cleared");
+  Future<void> _resetWallet() async {
+    setState(() => loading = true);
+    try {
+      setState(() {
+        balance = 0;
+        txs.clear();
+      });
+      await _saveLocal();
+      _toast("Reset done.");
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
-  // ---------- Derived ----------
-  List<_Tx> get filteredTxs {
-    final q = searchCtrl.text.trim().toLowerCase();
-
-    return txs.where((t) {
-      if (filter == TxTypeFilter.topup && t.type != TxType.topup) return false;
-      if (filter == TxTypeFilter.spend && t.type != TxType.spend) return false;
-
-      if (q.isEmpty) return true;
-      final hay = "${t.title} ${t.subtitle} ${t.amount}".toLowerCase();
-      return hay.contains(q);
-    }).toList();
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor:
+            Theme.of(context).brightness == Brightness.dark ? UColors.darkGlass : UColors.lightGlass,
+      ),
+    );
   }
 
-  double get totalTopup => txs.where((t) => t.type == TxType.topup).fold(0.0, (a, b) => a + b.amount);
-  double get totalSpend => txs.where((t) => t.type == TxType.spend).fold(0.0, (a, b) => a + b.amount);
-
-  // ---------- UI ----------
+  // ================== UI ==================
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMain = isDark ? UColors.darkText : UColors.lightText;
+
+    final fg = isDark ? Colors.white : UColors.lightText;
     final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    final chipBg = isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(6);
+    final chipBorder = isDark ? Colors.white.withAlpha(18) : border;
 
     return PremiumScaffold(
       title: "Wallet",
@@ -157,296 +199,196 @@ class _WalletScreenState extends State<WalletScreen> {
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: IconSquareButton(
-            icon: hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-            onTap: () => setState(() => hideBalance = !hideBalance),
+            icon: Icons.refresh_rounded,
+            onTap: loading ? () {} : _loadLocal,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: IconSquareButton(
+            icon: Icons.delete_outline_rounded,
+            onTap: loading ? () {} : _resetWallet,
           ),
         ),
       ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _heroBalanceCard(textMain, muted),
-          const SizedBox(height: 14),
-          _miniStatsRow(muted),
-          const SizedBox(height: 18),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 140),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _heroCard(isDark: isDark, fg: fg, muted: muted),
+            const SizedBox(height: 14),
 
-          Text(
-            "QUICK TOPUP",
-            style: TextStyle(
-              color: UColors.gold,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _quickAmountRow(muted),
-
-          const SizedBox(height: 16),
-
-          Text(
-            "TRANSACTION",
-            style: TextStyle(
-              color: UColors.gold,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          _actionComposer(textMain, muted),
-
-          const SizedBox(height: 14),
-          _searchAndFilter(textMain, muted),
-          const SizedBox(height: 10),
-
-          _historyHeader(muted),
-          const SizedBox(height: 10),
-
-          if (filteredTxs.isEmpty)
-            GlassCard(
-              child: Column(
-                children: [
-                  Icon(Icons.receipt_long_rounded, color: muted, size: 34),
-                  const SizedBox(height: 8),
-                  Text(
-                    "No transactions yet.",
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Topup or pay a service to see history here.",
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+            _sectionTitle("Quick Topup", isDark: isDark),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 52,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: presets.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) {
+                  final v = presets[i];
+                  return GestureDetector(
+                    onTap: loading ? null : () => _topup(v.toDouble()),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: chipBg,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: chipBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.add_circle_outline_rounded, color: muted, size: 18),
+                          const SizedBox(width: 8),
+                          Text("RM $v", style: TextStyle(color: fg, fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            )
-          else
-            Column(
-              children: filteredTxs
-                  .map((t) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _txTile(t, textMain, muted),
-                      ))
-                  .toList(),
             ),
-        ],
+
+            const SizedBox(height: 14),
+            _sectionTitle("Manual Amount", isDark: isDark),
+            const SizedBox(height: 10),
+            _amountRow(isDark: isDark, fg: fg, muted: muted, border: border),
+
+            const SizedBox(height: 18),
+            _sectionTitle("Transactions", isDark: isDark),
+            const SizedBox(height: 10),
+            _txList(isDark: isDark, fg: fg, muted: muted, border: border),
+          ],
+        ),
+      ),
+
+      bottomBar: _bottomBar(isDark: isDark, fg: fg, muted: muted, border: border),
+    );
+  }
+
+  Widget _sectionTitle(String t, {required bool isDark}) {
+    return Text(
+      t.toUpperCase(),
+      style: const TextStyle(
+        color: UColors.gold,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1,
+        fontSize: 11,
       ),
     );
   }
 
-  Widget _heroBalanceCard(Color textMain, Color muted) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final grad = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: isDark
-          ? const [Color(0xFF0F172A), Color(0xFF020617)]
-          : const [Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
-    );
+  Widget _heroCard({required bool isDark, required Color fg, required Color muted}) {
+    final bg = isDark ? const Color(0xFF0B1220) : UColors.lightCard;
+    final br = isDark ? Colors.white.withAlpha(18) : UColors.lightBorder;
 
     return GlassCard(
-      gradient: grad,
-      borderColor: UColors.gold.withAlpha(90),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: UColors.gold.withAlpha(18),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: UColors.gold.withAlpha(80)),
+      padding: const EdgeInsets.all(16),
+      borderColor: UColors.gold.withAlpha(140),
+      child: Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: br),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: UColors.gold.withAlpha(isDark ? 20 : 28),
+                border: Border.all(color: UColors.gold.withAlpha(120)),
+              ),
+              child: const Icon(Icons.account_balance_wallet_rounded, color: UColors.gold),
             ),
-            child: const Icon(Icons.account_balance_wallet_rounded, color: UColors.gold),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                "UNIPAY BALANCE",
-                style: TextStyle(
-                  color: muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("Current Balance", style: TextStyle(color: muted, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                Text(
+                  "RM ${balance.toStringAsFixed(2)}",
+                  style: TextStyle(
+                    color: UColors.gold,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    shadows: [Shadow(color: UColors.gold.withAlpha(60), blurRadius: 18)],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Stored locally (restart app tak hilang).",
+                  style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+              ]),
+            ),
+            if (loading)
+              Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: muted),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                hideBalance ? "RM ****" : "RM ${balance.toStringAsFixed(2)}",
-                style: TextStyle(
-                  color: textMain,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "Web mode • Offline wallet",
-                style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
-              ),
-            ]),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _miniStatsRow(Color muted) {
-    return Row(
-      children: [
-        Expanded(
-          child: _miniStat("Total Topup", "RM ${totalTopup.toStringAsFixed(0)}", UColors.success, muted),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _miniStat("Total Spend", "RM ${totalSpend.toStringAsFixed(0)}", UColors.warning, muted),
-        ),
-      ],
-    );
-  }
+  Widget _amountRow({
+    required bool isDark,
+    required Color fg,
+    required Color muted,
+    required Color border,
+  }) {
+    final fieldBg = isDark ? const Color(0xFF0B1220) : UColors.lightInput;
 
-  Widget _miniStat(String a, String b, Color accent, Color muted) {
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 36,
-            decoration: BoxDecoration(
-              color: accent.withAlpha(60),
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(a, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
-              const SizedBox(height: 3),
-              Text(b, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-            ]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _quickAmountRow(Color muted) {
-    final amounts = [5, 10, 20, 50, 100];
-
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: amounts.map((v) {
-        return GestureDetector(
-          onTap: loading ? null : () => _topup(v.toDouble()),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(10),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withAlpha(18)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.add_circle_outline_rounded, color: muted, size: 18),
-                const SizedBox(width: 8),
-                Text("RM $v", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _actionComposer(Color textMain, Color muted) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("AMOUNT (RM)", style: TextStyle(color: muted, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(10),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withAlpha(18)),
-                  ),
+          Container(
+            decoration: BoxDecoration(
+              color: fieldBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: border),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(Icons.payments_rounded, color: muted),
+                const SizedBox(width: 10),
+                Expanded(
                   child: TextField(
                     controller: amountCtrl,
                     keyboardType: TextInputType.number,
-                    style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 16),
+                    style: TextStyle(color: fg, fontWeight: FontWeight.w900),
                     decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: "10",
+                      hintText: "Amount (e.g. 3)",
                       hintStyle: TextStyle(color: muted),
+                      border: InputBorder.none,
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              IconSquareButton(
-                icon: Icons.attach_file_rounded,
-                onTap: _pickReceipt,
-                badge: attachedFileName == null
-                    ? null
-                    : Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: UColors.success, shape: BoxShape.circle),
-                      ),
-              ),
-            ],
-          ),
-          if (attachedFileName != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              "Attached: $attachedFileName",
-              style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
+                Text("RM", style: TextStyle(color: muted, fontWeight: FontWeight.w900)),
+              ],
             ),
-          ],
+          ),
           const SizedBox(height: 12),
-          Text("NOTE (OPTIONAL)", style: TextStyle(color: muted, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(10),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withAlpha(18)),
-            ),
-            child: TextField(
-              controller: noteCtrl,
-              style: TextStyle(color: textMain, fontWeight: FontWeight.w700),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "e.g. Topup for Runner / Pay Barber",
-                hintStyle: TextStyle(color: muted),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-
           Row(
             children: [
               Expanded(
                 child: PrimaryButton(
                   text: loading ? "..." : "Topup",
                   icon: Icons.add_rounded,
-                  bg: UColors.gold,
+                  bg: UColors.teal,
                   onTap: loading ? () {} : () => _topup(_amountFromField()),
                 ),
               ),
@@ -454,9 +396,8 @@ class _WalletScreenState extends State<WalletScreen> {
               Expanded(
                 child: PrimaryButton(
                   text: loading ? "..." : "Pay",
-                  icon: Icons.payments_rounded,
-                  bg: UColors.teal,
-                  fg: Colors.black,
+                  icon: Icons.arrow_upward_rounded,
+                  bg: UColors.gold,
                   onTap: loading ? () {} : () => _spend(_amountFromField()),
                 ),
               ),
@@ -467,243 +408,170 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _searchAndFilter(Color textMain, Color muted) {
-    return Row(
-      children: [
-        Expanded(
-          child: GlassCard(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded, color: muted),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: searchCtrl,
-                    onChanged: (_) => setState(() {}),
-                    style: TextStyle(color: textMain, fontWeight: FontWeight.w700),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: "Search history...",
-                      hintStyle: TextStyle(color: muted),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        _filterPill(muted),
-      ],
-    );
-  }
-
-  Widget _filterPill(Color muted) {
-    String label = "All";
-    if (filter == TxTypeFilter.topup) label = "Topup";
-    if (filter == TxTypeFilter.spend) label = "Spend";
-
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showModalBottomSheet<TxTypeFilter>(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => _filterSheet(),
-        );
-        if (!mounted) return;
-        if (picked != null) setState(() => filter = picked);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withAlpha(10),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withAlpha(18)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+  Widget _txList({
+    required bool isDark,
+    required Color fg,
+    required Color muted,
+    required Color border,
+  }) {
+    if (txs.isEmpty) {
+      return GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           children: [
-            Icon(Icons.tune_rounded, color: muted, size: 18),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+            Icon(Icons.receipt_long_rounded, color: muted, size: 32),
+            const SizedBox(height: 10),
+            Text("No transactions yet.", style: TextStyle(color: fg, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text("Try topup RM5 then pay RM3.", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _filterSheet() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0B1220) : const Color(0xFFFFFFFF);
+    return Column(
+      children: txs.map((t) {
+        final isIn = t.type == _TxType.topup;
+        final sign = isIn ? "+" : "-";
+        final color = isIn ? UColors.success : UColors.warning;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-        border: Border.all(color: Colors.white.withAlpha(12)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 46, height: 5, decoration: BoxDecoration(color: Colors.grey.withAlpha(60), borderRadius: BorderRadius.circular(99))),
-          const SizedBox(height: 14),
-          _sheetItem("All", TxTypeFilter.all),
-          _sheetItem("Topup only", TxTypeFilter.topup),
-          _sheetItem("Spend only", TxTypeFilter.spend),
-        ],
-      ),
-    );
-  }
+        final bg = isDark ? Colors.white.withAlpha(6) : Colors.black.withAlpha(4);
+        final br = isDark ? Colors.white.withAlpha(18) : border;
 
-  Widget _sheetItem(String title, TxTypeFilter v) {
-    return ListTile(
-      onTap: () => Navigator.pop(context, v),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.withAlpha(150)),
-    );
-  }
-
-  Widget _historyHeader(Color muted) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            "HISTORY",
-            style: TextStyle(
-              color: muted,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-              fontSize: 11,
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: br),
             ),
+            child: ListTile(
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: color.withAlpha(18),
+                  border: Border.all(color: color.withAlpha(120)),
+                ),
+                child: Icon(isIn ? Icons.add_rounded : Icons.arrow_upward_rounded, color: color),
+              ),
+              title: Text(t.title, style: TextStyle(color: fg, fontWeight: FontWeight.w900)),
+              subtitle: Text(
+                "${t.subtitle} • ${_fmtTime(t.at)}",
+                style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+              trailing: Text(
+                "$sign RM ${t.amount.toStringAsFixed(2)}",
+                style: TextStyle(color: color, fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _fmtTime(DateTime d) {
+    String two(int x) => x.toString().padLeft(2, '0');
+    return "${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}";
+  }
+
+  Widget _bottomBar({
+    required bool isDark,
+    required Color fg,
+    required Color muted,
+    required Color border,
+  }) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          borderColor: UColors.gold.withAlpha(140),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Current Balance", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    Text(
+                      "RM ${balance.toStringAsFixed(2)}",
+                      style: TextStyle(
+                        color: UColors.gold,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        shadows: [Shadow(color: UColors.gold.withAlpha(60), blurRadius: 16)],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 48,
+                child: PrimaryButton(
+                  text: "Spend RM3",
+                  icon: Icons.shopping_bag_rounded,
+                  bg: UColors.gold,
+                  onTap: loading ? () {} : () => _spend(3),
+                ),
+              ),
+            ],
           ),
         ),
-        GestureDetector(
-          onTap: _clearHistory,
-          child: Text(
-            "Clear",
-            style: TextStyle(
-              color: UColors.danger,
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-            ),
-          ),
-        )
-      ],
-    );
-  }
-
-  Widget _txTile(_Tx t, Color textMain, Color muted) {
-    final isTopup = t.type == TxType.topup;
-    final accent = isTopup ? UColors.success : UColors.warning;
-    final sign = isTopup ? "+" : "-";
-
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      radius: BorderRadius.circular(18),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: accent.withAlpha(30),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: accent.withAlpha(120)),
-            ),
-            child: Icon(
-              isTopup ? Icons.add_circle_rounded : Icons.payments_rounded,
-              color: accent,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                t.title,
-                style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                "${t.subtitle} • ${_timeLabel(t.time)}",
-                style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (t.attachmentName != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  "📎 ${t.attachmentName}",
-                  style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
-                ),
-              ],
-            ]),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            "$sign RM${t.amount.toStringAsFixed(2)}",
-            style: TextStyle(
-              color: isTopup ? UColors.success : textMain,
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _amountFromField() {
-    final v = double.tryParse(amountCtrl.text.trim()) ?? 0;
-    return v.clamp(0, 999999);
-  }
-
-  String _niceNote(String s) {
-    final t = s.trim();
-    return t.isEmpty ? "No note" : t;
-  }
-
-  String _timeLabel(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-
-    if (diff.inMinutes < 1) return "Just now";
-    if (diff.inMinutes < 60) return "${diff.inMinutes}m ago";
-    if (diff.inHours < 24) return "${diff.inHours}h ago";
-    return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-  }
-
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? UColors.darkGlass
-            : UColors.lightGlass,
       ),
     );
   }
 }
 
-enum TxTypeFilter { all, topup, spend }
+// ================== MODEL ==================
+enum _TxType { topup, spend }
 
-class _Tx {
-  final TxType type;
+class _WalletTx {
+  final _TxType type;
+  final double amount;
   final String title;
   final String subtitle;
-  final double amount;
-  final DateTime time;
-  final String? attachmentName;
+  final DateTime at;
 
-  _Tx({
+  const _WalletTx({
     required this.type,
+    required this.amount,
     required this.title,
     required this.subtitle,
-    required this.amount,
-    required this.time,
-    this.attachmentName,
+    required this.at,
   });
+
+  Map<String, dynamic> toJson() => {
+        "type": type.name,
+        "amount": amount,
+        "title": title,
+        "subtitle": subtitle,
+        "at": at.toIso8601String(),
+      };
+
+  factory _WalletTx.fromJson(Map<String, dynamic> json) {
+    final typeStr = (json["type"] ?? "topup").toString();
+    final parsedType = typeStr == "spend" ? _TxType.spend : _TxType.topup;
+
+    final amtRaw = json["amount"];
+    final amt = (amtRaw is num) ? amtRaw.toDouble() : double.tryParse("$amtRaw") ?? 0;
+
+    final atRaw = (json["at"] ?? "").toString();
+    final at = DateTime.tryParse(atRaw) ?? DateTime.now();
+
+    return _WalletTx(
+      type: parsedType,
+      amount: amt,
+      title: (json["title"] ?? "").toString(),
+      subtitle: (json["subtitle"] ?? "").toString(),
+      at: at,
+    );
+  }
 }

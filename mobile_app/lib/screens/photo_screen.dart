@@ -46,6 +46,15 @@ class _PhotoScreenState extends State<PhotoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // ✅ Colors that adapt to light/dark
+    final fg = isDark ? Colors.white : const Color(0xFF0F172A); // slate-900
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final subtle = isDark ? Colors.white.withAlpha(170) : const Color(0xFF334155); // slate-600
+    final cardBg = isDark ? Colors.white.withAlpha(6) : Colors.black.withAlpha(6);
+    final cardBorder = isDark ? Colors.white.withAlpha(20) : Colors.black.withAlpha(18);
+
     return PremiumScaffold(
       title: "Photographer",
       actions: [
@@ -78,9 +87,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
                 Text(
                   "Book a photographer at IIUM.",
                   style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? UColors.darkMuted
-                        : UColors.lightMuted,
+                    color: muted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -89,9 +96,9 @@ class _PhotoScreenState extends State<PhotoScreen> {
           ),
           const SizedBox(height: 18),
 
-          Text(
+          const Text(
             "1. CHOOSE PACKAGE",
-            style: const TextStyle(
+            style: TextStyle(
               color: UColors.gold,
               fontWeight: FontWeight.w900,
               letterSpacing: 1,
@@ -99,12 +106,18 @@ class _PhotoScreenState extends State<PhotoScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          _pkgScroller(),
+          _pkgScroller(
+            isDark: isDark,
+            fg: fg,
+            muted: muted,
+            cardBg: cardBg,
+            cardBorder: cardBorder,
+          ),
           const SizedBox(height: 18),
 
-          Text(
+          const Text(
             "2. DATE & TIME",
-            style: const TextStyle(
+            style: TextStyle(
               color: UColors.gold,
               fontWeight: FontWeight.w900,
               letterSpacing: 1,
@@ -114,16 +127,16 @@ class _PhotoScreenState extends State<PhotoScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _dateCard()),
+              Expanded(child: _dateCard(fg: fg, subtle: subtle)),
               const SizedBox(width: 12),
-              Expanded(child: _timeCard()),
+              Expanded(child: _timeCard(fg: fg, subtle: subtle)),
             ],
           ),
           const SizedBox(height: 18),
 
-          Text(
+          const Text(
             "3. LOCATION & NOTES",
-            style: const TextStyle(
+            style: TextStyle(
               color: UColors.gold,
               fontWeight: FontWeight.w900,
               letterSpacing: 1,
@@ -147,9 +160,9 @@ class _PhotoScreenState extends State<PhotoScreen> {
           ),
           const SizedBox(height: 18),
 
-          Text(
+          const Text(
             "4. ADD-ONS",
-            style: const TextStyle(
+            style: TextStyle(
               color: UColors.gold,
               fontWeight: FontWeight.w900,
               letterSpacing: 1,
@@ -157,25 +170,34 @@ class _PhotoScreenState extends State<PhotoScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          _addonsCard(),
+          _addonsCard(fg: fg, muted: muted),
 
           const SizedBox(height: 120), // space for bottomBar
         ],
       ),
-      bottomBar: _bottomActionBar(),
+      bottomBar: _bottomActionBar(fg: fg, muted: muted),
     );
   }
 
-  Widget _pkgScroller() {
+  Widget _pkgScroller({
+    required bool isDark,
+    required Color fg,
+    required Color muted,
+    required Color cardBg,
+    required Color cardBorder,
+  }) {
     return SizedBox(
       height: 150,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: packages.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           final p = packages[i];
           final active = i == selectedPkg;
+
+          final bg = active ? UColors.gold.withAlpha(25) : cardBg;
+          final border = active ? UColors.gold : cardBorder;
 
           return GestureDetector(
             onTap: () => setState(() => selectedPkg = i),
@@ -183,13 +205,13 @@ class _PhotoScreenState extends State<PhotoScreen> {
               width: 175,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
-                color: active ? UColors.gold.withAlpha(25) : Colors.white.withAlpha(6),
+                color: bg,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: active ? UColors.gold : Colors.white.withAlpha(20)),
+                border: Border.all(color: border),
                 boxShadow: active
                     ? [
                         BoxShadow(
-                          color: Colors.black.withAlpha(80),
+                          color: Colors.black.withAlpha(isDark ? 80 : 35),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         )
@@ -204,11 +226,15 @@ class _PhotoScreenState extends State<PhotoScreen> {
                     height: 54,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: active ? UColors.gold : const Color(0xFF334155),
+                      color: active
+                          ? UColors.gold
+                          : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)), // slate-200
                     ),
                     child: Icon(
                       p.icon,
-                      color: active ? Colors.black : UColors.darkMuted,
+                      color: active
+                          ? Colors.black
+                          : (isDark ? UColors.darkMuted : const Color(0xFF0F172A)),
                       size: 26,
                     ),
                   ),
@@ -233,8 +259,8 @@ class _PhotoScreenState extends State<PhotoScreen> {
                     p.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: fg,
                       fontWeight: FontWeight.w900,
                       fontSize: 12,
                     ),
@@ -246,7 +272,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withAlpha(170),
+                      color: muted,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                     ),
@@ -260,10 +286,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
     );
   }
 
-  Widget _addonsCard() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
+  Widget _addonsCard({required Color fg, required Color muted}) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -274,6 +297,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
             price: 10,
             value: addEditing,
             onChanged: (v) => setState(() => addEditing = v),
+            fg: fg,
             muted: muted,
           ),
           const SizedBox(height: 10),
@@ -283,6 +307,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
             price: 20,
             value: addExtra30,
             onChanged: (v) => setState(() => addExtra30 = v),
+            fg: fg,
             muted: muted,
           ),
           const SizedBox(height: 10),
@@ -292,6 +317,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
             price: 15,
             value: addRush,
             onChanged: (v) => setState(() => addRush = v),
+            fg: fg,
             muted: muted,
           ),
         ],
@@ -305,6 +331,7 @@ class _PhotoScreenState extends State<PhotoScreen> {
     required double price,
     required bool value,
     required ValueChanged<bool> onChanged,
+    required Color fg,
     required Color muted,
   }) {
     return Row(
@@ -313,24 +340,27 @@ class _PhotoScreenState extends State<PhotoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+              Text(title, style: TextStyle(color: fg, fontWeight: FontWeight.w900)),
               const SizedBox(height: 2),
               Text(subtitle, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
               const SizedBox(height: 6),
-              Text("RM ${price.toStringAsFixed(0)}", style: const TextStyle(color: UColors.success, fontWeight: FontWeight.w900)),
+              Text(
+                "RM ${price.toStringAsFixed(0)}",
+                style: const TextStyle(color: UColors.success, fontWeight: FontWeight.w900),
+              ),
             ],
           ),
         ),
         Switch(
           value: value,
           onChanged: onChanged,
-          activeThumbColor: UColors.gold, // (activeColor deprecated)
+          activeThumbColor: UColors.gold,
         ),
       ],
     );
   }
 
-  Widget _dateCard() {
+  Widget _dateCard({required Color fg, required Color subtle}) {
     final label = "${selectedDate.day.toString().padLeft(2, "0")}/"
         "${selectedDate.month.toString().padLeft(2, "0")}/"
         "${selectedDate.year}";
@@ -356,30 +386,34 @@ class _PhotoScreenState extends State<PhotoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("DATE",
-                      style: TextStyle(
-                        color: Colors.white.withAlpha(170),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                        letterSpacing: 1,
-                      )),
+                  Text(
+                    "DATE",
+                    style: TextStyle(
+                      color: subtle,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      letterSpacing: 1,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      )),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white.withAlpha(160)),
+            Icon(Icons.chevron_right_rounded, color: fg.withAlpha(160)),
           ],
         ),
       ),
     );
   }
 
-  Widget _timeCard() {
+  Widget _timeCard({required Color fg, required Color subtle}) {
     final label = selectedTime.format(context);
 
     return GestureDetector(
@@ -400,34 +434,34 @@ class _PhotoScreenState extends State<PhotoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("TIME",
-                      style: TextStyle(
-                        color: Colors.white.withAlpha(170),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                        letterSpacing: 1,
-                      )),
+                  Text(
+                    "TIME",
+                    style: TextStyle(
+                      color: subtle,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                      letterSpacing: 1,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      )),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white.withAlpha(160)),
+            Icon(Icons.chevron_right_rounded, color: fg.withAlpha(160)),
           ],
         ),
       ),
     );
   }
 
-  Widget _bottomActionBar() {
-    final muted = Theme.of(context).brightness == Brightness.dark
-        ? UColors.darkMuted
-        : UColors.lightMuted;
-
+  Widget _bottomActionBar({required Color fg, required Color muted}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
       child: Column(
@@ -441,8 +475,10 @@ class _PhotoScreenState extends State<PhotoScreen> {
                   children: [
                     Text("Total Price", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
-                    Text("Pay after shoot (demo)",
-                        style: TextStyle(color: UColors.success, fontSize: 11, fontWeight: FontWeight.w900)),
+                    Text(
+                      "Pay after shoot (demo)",
+                      style: TextStyle(color: UColors.success, fontSize: 11, fontWeight: FontWeight.w900),
+                    ),
                   ],
                 ),
               ),

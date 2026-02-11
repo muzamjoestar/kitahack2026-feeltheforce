@@ -1,6 +1,6 @@
+
 import 'package:flutter/material.dart';
-import '../ui/uniserve_ui.dart';
-import '../theme/colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TransportScreen extends StatefulWidget {
   const TransportScreen({super.key});
@@ -12,34 +12,35 @@ class TransportScreen extends StatefulWidget {
 class _TransportScreenState extends State<TransportScreen> {
   // --- Route state ---
   _Place pickup = _Place.iiaMainGate(); // default
-  _Place? stop; // optional
+  final List<_Place> stops = []; // ✅ unlimited stops
   _Place? dropoff;
 
-  // --- Filters for dropdown sheet ---
-  String sheetQuery = "";
-  String sheetCat = "All"; // All / Mahallah / Cafe / Faculty / Mall / Transit / Gate / Admin / Health / Mosque / Hall
+  // --- Sheet filter ---
+  String sheetCat = "All";
 
   // --- Ride options ---
   String ride = "sedan"; // sedan / muslimah / mpv / sis_mpv
 
+  // --- Offer flow ---
+  final TextEditingController offerCtrl = TextEditingController();
+  String offerStatus = ""; // shown after send
+
   // --- Pricing rules ---
-  static const int stopFee = 3; // +RM3 for stop
+  static const int stopFee = 3; // +RM3 for each stop
+
   int get paxAdd {
-    // 5-7 persons up RM1-RM3 (your note)
     switch (ride) {
       case "mpv":
-        return 2; // +RM2
+        return 2;
       case "sis_mpv":
-        return 3; // +RM3
+        return 3;
       default:
         return 0;
     }
   }
 
-  // =============== DATA ===============
-  // UIA inside places (zone based). zone 1/2/3 like you wrote.
+  // =============== DATA (KEEP CONTENT) ===============
   final List<_Place> iiaPlaces = const [
-    // --- ZONE 1 (ATAS - PEREMPUAN) ---
     _Place(name: 'Mahallah Halimah', zone: 1, cat: 'Mahallah', kind: _Kind.inside),
     _Place(name: 'Cafe Mahallah Halimah', zone: 1, cat: 'Cafe', kind: _Kind.inside),
     _Place(name: 'Mahallah Hafsa', zone: 1, cat: 'Mahallah', kind: _Kind.inside),
@@ -50,7 +51,6 @@ class _TransportScreenState extends State<TransportScreen> {
     _Place(name: 'Mahallah Aminah', zone: 1, cat: 'Mahallah', kind: _Kind.inside),
     _Place(name: 'Mahallah Nusaibah', zone: 1, cat: 'Mahallah', kind: _Kind.inside),
 
-    // --- ZONE 2 (TENGAH - LELAKI/CENTRAL) ---
     _Place(name: 'Mahallah Zubair', zone: 2, cat: 'Mahallah', kind: _Kind.inside),
     _Place(name: 'Cafe Mahallah Zubair', zone: 2, cat: 'Cafe', kind: _Kind.inside),
     _Place(name: 'Mahallah Bilal', zone: 2, cat: 'Mahallah', kind: _Kind.inside),
@@ -64,7 +64,6 @@ class _TransportScreenState extends State<TransportScreen> {
     _Place(name: 'CU Mart UIA (SAC)', zone: 2, cat: 'Mart', kind: _Kind.inside),
     _Place(name: 'ZC Mart (SAC)', zone: 2, cat: 'Mart', kind: _Kind.inside),
 
-    // --- ZONE 3 (BAWAH - AKADEMIK/ADMIN) ---
     _Place(name: 'KICT (IT)', zone: 3, cat: 'Faculty', kind: _Kind.inside),
     _Place(name: 'KENMS (Econs)', zone: 3, cat: 'Faculty', kind: _Kind.inside),
     _Place(name: 'AIKOL (Law)', zone: 3, cat: 'Faculty', kind: _Kind.inside),
@@ -79,7 +78,6 @@ class _TransportScreenState extends State<TransportScreen> {
     _Place(name: 'Masjid UIA', zone: 3, cat: 'Mosque', kind: _Kind.inside),
   ];
 
-  // External places (your 2025 list). Use min/max, show range, estimate uses min.
   final List<_Place> outsidePlaces = const [
     _Place(name: 'LRT Gombak', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 10, max: 10),
     _Place(name: 'KL East Mall', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 10, max: 10),
@@ -91,110 +89,50 @@ class _TransportScreenState extends State<TransportScreen> {
     _Place(name: 'Setapak', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 15),
     _Place(name: 'Wangsa Maju', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 15),
     _Place(name: 'Zoo Negara', zone: 99, cat: 'Attraction', kind: _Kind.outside, min: 16, max: 17),
-
-    _Place(name: 'Sri Gombak', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 15),
-    _Place(name: 'KL Traders Square', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 16),
-    _Place(name: 'PV 2/6/8', zone: 99, cat: 'Area', kind: _Kind.outside, min: 10, max: 12),
-    _Place(name: 'McD BHP / McD Taman Melawati', zone: 99, cat: 'Food', kind: _Kind.outside, min: 12, max: 12),
-
     _Place(name: 'TBS', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 30, max: 40),
-    _Place(name: 'HKL / Chow Kit', zone: 99, cat: 'Hospital', kind: _Kind.outside, min: 20, max: 25),
-    _Place(name: 'PWTC', zone: 99, cat: 'Area', kind: _Kind.outside, min: 20, max: 25),
-    _Place(name: 'Pakelling', zone: 99, cat: 'Area', kind: _Kind.outside, min: 20, max: 25),
-
-    _Place(name: 'UTM / UTM Residensi', zone: 99, cat: 'Education', kind: _Kind.outside, min: 22, max: 27),
-    _Place(name: 'National Library', zone: 99, cat: 'Education', kind: _Kind.outside, min: 22, max: 27),
-    _Place(name: 'Egyptian Embassy Ampang', zone: 99, cat: 'Area', kind: _Kind.outside, min: 22, max: 27),
-
     _Place(name: 'KLCC', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 25, max: 30),
-    _Place(name: 'Berjaya Times Square', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 25, max: 30),
-    _Place(name: 'Hentian Duta', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 25, max: 30),
-    _Place(name: 'Low Yat Plaza', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 25, max: 30),
     _Place(name: 'KL Sentral / NU Sentral', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 25, max: 30),
-    _Place(name: 'TRX', zone: 99, cat: 'Area', kind: _Kind.outside, min: 25, max: 30),
-    _Place(name: 'Hospital Ampang', zone: 99, cat: 'Hospital', kind: _Kind.outside, min: 25, max: 30),
-    _Place(name: 'Indonesian Embassy Ampang', zone: 99, cat: 'Area', kind: _Kind.outside, min: 25, max: 30),
-
-    _Place(name: 'University Malaya', zone: 99, cat: 'Education', kind: _Kind.outside, min: 30, max: 40),
-    _Place(name: 'UPM Serdang', zone: 99, cat: 'Education', kind: _Kind.outside, min: 40, max: 50),
-    _Place(name: 'Subang Airport', zone: 99, cat: 'Airport', kind: _Kind.outside, min: 40, max: 50),
-
-    _Place(name: 'IKEA Damansara', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 35, max: 40),
-    _Place(name: 'One Utama', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 40, max: 50),
-
-    _Place(name: 'Cyberjaya', zone: 99, cat: 'Area', kind: _Kind.outside, min: 55, max: 65),
-    _Place(name: 'I-City Shah Alam', zone: 99, cat: 'Attraction', kind: _Kind.outside, min: 55, max: 65),
-    _Place(name: 'Genting Highland Premium Outlet', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 60, max: 70),
-
     _Place(name: 'KLIA 1/2', zone: 99, cat: 'Airport', kind: _Kind.outside, min: 90, max: 100),
   ];
 
-  List<_Place> get allPlaces => [
-        pickup, // include current pickup
-        ...iiaPlaces,
-        ...outsidePlaces,
-      ];
+  List<_Place> get allPlaces => [pickup, ...iiaPlaces, ...outsidePlaces];
 
   // =============== PRICING ===============
   int _insideBasePrice(_Place a, _Place b) {
-    // UIA: RM3 beside mahallah / dekat, RM4 halfway, RM5 around
-    // We'll use zone distance:
-    // same zone -> 3
-    // diff 1 zone -> 4
-    // diff 2 zones -> 5
     final d = (a.zone - b.zone).abs();
     if (d == 0) return 3;
     if (d == 1) return 4;
     return 5;
   }
 
-  int? _estimateMin() {
-    if (dropoff == null) return null;
+  int _stopAdd() => stops.length * stopFee;
+
+  int _estimateMin() {
+    if (dropoff == null) return 0;
 
     int baseMin;
-    // ignore: unused_local_variable
-    int baseMax;
-
-    // If dropoff outside: use its min/max.
     if (dropoff!.kind == _Kind.outside) {
       baseMin = dropoff!.min ?? 0;
-      baseMax = dropoff!.max ?? baseMin;
     } else {
-      // inside UIA: pickup & dropoff zones
-      final a = pickup;
-      final b = dropoff!;
-      baseMin = _insideBasePrice(a, b);
-      baseMax = baseMin;
+      baseMin = _insideBasePrice(pickup, dropoff!);
     }
 
-    // Stop adds +RM3 (your rule)
-    final stopAdd = (stop != null) ? stopFee : 0;
-
-    // Pax add for 5-7
-    final pax = paxAdd;
-
-    return baseMin + stopAdd + pax;
+    return baseMin + _stopAdd() + paxAdd;
   }
 
   String _estimateLabel() {
     if (dropoff == null) return "RM 0";
-    final min = _estimateMin() ?? 0;
 
-    // If outside and has range -> show range + add-ons
+    final min = _estimateMin();
+
     if (dropoff!.kind == _Kind.outside && dropoff!.min != null && dropoff!.max != null) {
-      final maxBase = dropoff!.max!;
-      final stopAdd = (stop != null) ? stopFee : 0;
-      final pax = paxAdd;
-      final max = maxBase + stopAdd + pax;
-
+      final max = (dropoff!.max ?? dropoff!.min!) + _stopAdd() + paxAdd;
       if (max != min) return "RM $min - $max";
     }
-
     return "RM $min";
   }
 
   String _etaLabel() {
-    // simple fun ETA - can be upgraded later
     if (dropoff == null) return "-";
     if (dropoff!.kind == _Kind.outside) return "15–45 min";
     final d = (pickup.zone - dropoff!.zone).abs();
@@ -203,54 +141,105 @@ class _TransportScreenState extends State<TransportScreen> {
     return "14–22 min";
   }
 
+  // =============== OPEN IN CHROME ===============
+  Future<void> _openInMapsChrome() async {
+    if (dropoff == null) {
+      _toast("Choose dropoff first.");
+      return;
+    }
+
+    // This uses name search (no lat/lng needed).
+    // Google Maps will open in browser (Chrome) on Android by default.
+    final origin = Uri.encodeComponent(pickup.name);
+    final destination = Uri.encodeComponent(dropoff!.name);
+    final waypoints = stops.isEmpty
+        ? ""
+        : "&waypoints=${Uri.encodeComponent(stops.map((e) => e.name).join('|'))}";
+
+    final url = "https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$destination$waypoints&travelmode=driving";
+
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _toast("Can't open Maps. Try install/update Google Maps/Chrome.");
+    }
+  }
+
   // =============== UI ===============
   @override
+  void dispose() {
+    offerCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return PremiumScaffold(
-      title: "Plan Trip",
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: IconSquareButton(
-            icon: Icons.refresh_rounded,
-            onTap: () => setState(() {
-              stop = null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bg = isDark ? const Color(0xFF060B14) : const Color(0xFFF6F7FB);
+    final card = isDark ? const Color(0xFF0B1220) : Colors.white;
+    final border = isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12);
+    final textMain = isDark ? Colors.white : const Color(0xFF0B1220);
+    final muted = isDark ? Colors.white.withAlpha(170) : Colors.black.withAlpha(130);
+
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        title: const Text("Plan Trip"),
+        backgroundColor: isDark ? const Color(0xFF070D18) : Colors.white,
+        foregroundColor: textMain,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => setState(() {
+              stops.clear();
               dropoff = null;
               ride = "sedan";
+              offerCtrl.clear();
+              offerStatus = "";
             }),
           ),
-        ),
-      ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle("1. SET ROUTE"),
-          const SizedBox(height: 10),
-          _routeCard(),
-
-          const SizedBox(height: 16),
-          _sectionTitle("2. CHOOSE RIDE"),
-          const SizedBox(height: 10),
-          _rideRow(),
-
-          const SizedBox(height: 12),
-          _categoryChips(),
-
-          const SizedBox(height: 16),
-          _grabPlusFeatures(),
-
-          const SizedBox(height: 130), // space for bottom bar
         ],
       ),
-      bottomBar: _bottomBar(), // ✅ small, won't stretch
+      body: SafeArea(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 150),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sectionTitle("1. SET ROUTE", textMain),
+                  const SizedBox(height: 10),
+                  _routeCard(card: card, border: border, textMain: textMain, muted: muted),
+
+                  const SizedBox(height: 16),
+                  _sectionTitle("2. CHOOSE RIDE", textMain),
+                  const SizedBox(height: 10),
+                  _rideGrid(textMain: textMain, muted: muted),
+
+                  const SizedBox(height: 16),
+                  _sectionTitle("3. OFFER PRICE", textMain),
+                  const SizedBox(height: 10),
+                  _offerCard(card: card, border: border, textMain: textMain, muted: muted),
+                ],
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: _bottomBar(card: card, border: border, textMain: textMain, muted: muted),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _sectionTitle(String t) {
+  Widget _sectionTitle(String t, Color textMain) {
     return Text(
       t,
-      style: const TextStyle(
-        color: UColors.gold,
+      style: TextStyle(
+        color: textMain,
         fontWeight: FontWeight.w900,
         letterSpacing: 1,
         fontSize: 12,
@@ -258,123 +247,119 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  Widget _routeCard() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
+  Widget _routeCard({
+    required Color card,
+    required Color border,
+    required Color textMain,
+    required Color muted,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // route dots + line
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Column(
-              children: [
-                _dot(UColors.success),
-                Container(width: 2, height: 44, color: Colors.white.withAlpha(16)),
-                _dot(UColors.warning),
-                Container(width: 2, height: 44, color: Colors.white.withAlpha(16)),
-                _dot(UColors.danger),
-              ],
-            ),
+          _dropField(
+            label: "PICKUP",
+            value: pickup.name,
+            hint: "Select pickup...",
+            onTap: () => _pickPlace(target: _Target.pickup),
+            card: card,
+            border: border,
+            textMain: textMain,
+            muted: muted,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(height: 12),
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("PICK UP", style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                const SizedBox(height: 6),
-                _dropField(
-                  value: pickup.name,
-                  hint: "Select pickup...",
-                  onTap: () => _pickPlace(target: _Target.pickup),
-                ),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _pickPlace(target: _Target.stop),
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                label: const Text("Add Stop (+RM3 each)"),
+              ),
+              const Spacer(),
+              if (stops.isNotEmpty)
+                Text("${stops.length} stop(s)", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+            ],
+          ),
 
-                const SizedBox(height: 14),
+          if (stops.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (int i = 0; i < stops.length; i++) ...[
+              _stopRow(
+                stops[i],
+                label: "STOP ${i + 1}",
+                onRemove: () => setState(() => stops.removeAt(i)),
+                card: card,
+                border: border,
+                textMain: textMain,
+                muted: muted,
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
 
-                // stop button + selected stop
-                if (stop == null)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _ghostBtn(
-                      icon: Icons.add_circle_outline_rounded,
-                      text: "Add Stop (+RM3)",
-                      onTap: () => _pickPlace(target: _Target.stop),
-                    ),
-                  )
-                else
-                  _stopRow(stop!, onRemove: () => setState(() => stop = null)),
+          _dropField(
+            label: "DROPOFF",
+            value: dropoff?.name,
+            hint: "Final destination...",
+            onTap: () => _pickPlace(target: _Target.dropoff),
+            card: card,
+            border: border,
+            textMain: textMain,
+            muted: muted,
+          ),
 
-                const SizedBox(height: 14),
-
-                Text("DROP OFF", style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                const SizedBox(height: 6),
-                _dropField(
-                  value: dropoff?.name,
-                  hint: "Final destination...",
-                  onTap: () => _pickPlace(target: _Target.dropoff),
-                ),
-
-                const SizedBox(height: 10),
-
-                Text(
-                  "Prices exclude toll & heavy jam. When jammed, price may increase.",
-                  style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
+          const SizedBox(height: 10),
+          Text(
+            "Tip: tekan Open in Maps untuk buka route dalam Chrome.",
+            style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w600),
           ),
         ],
       ),
     );
   }
 
-  Widget _dot(Color c) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(
-        color: c.withAlpha(220),
-        shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: c.withAlpha(120), blurRadius: 12)],
-      ),
-    );
-  }
-
   Widget _dropField({
+    required String label,
     required String? value,
     required String hint,
     required VoidCallback onTap,
+    required Color card,
+    required Color border,
+    required Color textMain,
+    required Color muted,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fg = isDark ? Colors.white : UColors.lightText;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0B1220) : UColors.lightInput,
+          color: card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark ? UColors.darkBorder : UColors.lightBorder),
+          border: Border.all(color: border),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                value ?? hint,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: value == null ? muted : fg,
-                  fontWeight: FontWeight.w800,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label, style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                const SizedBox(height: 4),
+                Text(
+                  value ?? hint,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: value == null ? muted : textMain,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
+              ]),
             ),
             Icon(Icons.keyboard_arrow_down_rounded, color: muted),
           ],
@@ -383,55 +368,38 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  Widget _ghostBtn({required IconData icon, required String text, required VoidCallback onTap}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withAlpha(22)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: muted, size: 18),
-            const SizedBox(width: 8),
-            Text(text, style: TextStyle(color: muted, fontWeight: FontWeight.w900, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _stopRow(_Place p, {required VoidCallback onRemove}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
+  Widget _stopRow(
+    _Place p, {
+    required String label,
+    required VoidCallback onRemove,
+    required Color card,
+    required Color border,
+    required Color textMain,
+    required Color muted,
+  }) {
     return Row(
       children: [
         Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0B1220) : UColors.lightInput,
+              color: card,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: isDark ? UColors.darkBorder : UColors.lightBorder),
+              border: Border.all(color: border),
             ),
             child: Row(
               children: [
                 Icon(Icons.flag_rounded, color: muted, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    p.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                      const SizedBox(height: 2),
+                      Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: textMain, fontWeight: FontWeight.w800)),
+                    ],
                   ),
                 ),
               ],
@@ -439,106 +407,67 @@ class _TransportScreenState extends State<TransportScreen> {
           ),
         ),
         const SizedBox(width: 10),
-        GestureDetector(
+        InkWell(
           onTap: onRemove,
+          borderRadius: BorderRadius.circular(12),
           child: Container(
             width: 42,
             height: 42,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: UColors.danger.withAlpha(24),
-              border: Border.all(color: UColors.danger.withAlpha(160)),
+              color: Colors.red.withAlpha(24),
+              border: Border.all(color: Colors.red.withAlpha(120)),
             ),
-            child: const Icon(Icons.close_rounded, color: UColors.danger, size: 18),
+            child: const Icon(Icons.close_rounded, color: Colors.red, size: 18),
           ),
         ),
       ],
     );
   }
 
-  Widget _rideRow() {
-    return Row(
+  Widget _rideGrid({required Color textMain, required Color muted}) {
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 2.3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
-        Expanded(
-          child: _rideCard(
-            id: "sedan",
-            title: "Sedan",
-            sub: "1–4 Pax",
-            icon: Icons.directions_car_rounded,
-            badge: null,
-            add: null,
-            active: ride == "sedan",
-            onTap: () => setState(() => ride = "sedan"),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _rideCard(
-            id: "muslimah",
-            title: "Muslimah",
-            sub: "4 Pax",
-            icon: Icons.woman_rounded,
-            badge: "SIS",
-            add: null,
-            active: ride == "muslimah",
-            onTap: () => setState(() => ride = "muslimah"),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _rideCard(
-            id: "mpv",
-            title: "MPV",
-            sub: "5–7 Pax",
-            icon: Icons.airport_shuttle_rounded,
-            badge: null,
-            add: "+RM2",
-            active: ride == "mpv",
-            onTap: () => setState(() => ride = "mpv"),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _rideCard(
-            id: "sis_mpv",
-            title: "Sis MPV",
-            sub: "6 Pax",
-            icon: Icons.groups_rounded,
-            badge: "SIS",
-            add: "+RM3",
-            active: ride == "sis_mpv",
-            onTap: () => setState(() => ride = "sis_mpv"),
-          ),
-        ),
+        _rideCard("Sedan", "1–4 Pax", Icons.directions_car_rounded, "sedan", textMain, muted),
+        _rideCard("Muslimah", "4 Pax", Icons.woman_rounded, "muslimah", textMain, muted, badge: "SIS"),
+        _rideCard("MPV", "5–7 Pax", Icons.airport_shuttle_rounded, "mpv", textMain, muted, add: "+RM2"),
+        _rideCard("Sis MPV", "6 Pax", Icons.groups_rounded, "sis_mpv", textMain, muted, badge: "SIS", add: "+RM3"),
       ],
     );
   }
 
-  Widget _rideCard({
-    required String id,
-    required String title,
-    required String sub,
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
+  Widget _rideCard(
+    String title,
+    String sub,
+    IconData icon,
+    String id,
+    Color textMain,
+    Color muted, {
     String? badge,
     String? add,
   }) {
-    final border = active ? UColors.gold : Colors.white.withAlpha(18);
-    final bg = active ? UColors.gold.withAlpha(18) : Colors.white.withAlpha(6);
+    final active = ride == id;
 
-    return GestureDetector(
-      onTap: onTap,
+    // ✅ pekat biru bila selected
+    const activeBg = Color(0xFF0B3A8A);
+    final inactiveBg = Colors.black.withAlpha(6);
+    final activeFg = Colors.white;
+
+    return InkWell(
+      onTap: () => setState(() => ride = id),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        height: 102,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: border),
-          boxShadow: active
-              ? [BoxShadow(color: Colors.black.withAlpha(90), blurRadius: 22, offset: const Offset(0, 10))]
-              : null,
+          color: active ? activeBg : inactiveBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: active ? activeBg : Colors.black.withAlpha(12)),
         ),
         child: Stack(
           children: [
@@ -546,33 +475,30 @@ class _TransportScreenState extends State<TransportScreen> {
               Positioned(
                 top: 0,
                 right: 0,
-                child: _pill(badge, UColors.pink, fg: Colors.white),
+                child: _pill(badge, Colors.pink, fg: Colors.white),
               ),
             if (add != null)
               Positioned(
                 top: 0,
                 left: 0,
-                child: _pill(add, UColors.gold, fg: Colors.black),
+                child: _pill(add, Colors.amber, fg: Colors.black),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  Icon(icon, color: active ? UColors.gold : UColors.darkMuted, size: 30),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 4),
-                        Text(sub, style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w700, fontSize: 11)),
-                      ],
-                    ),
+            Row(
+              children: [
+                Icon(icon, color: active ? activeFg : muted, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: TextStyle(color: active ? activeFg : textMain, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 2),
+                      Text(sub, style: TextStyle(color: active ? activeFg.withAlpha(220) : muted, fontWeight: FontWeight.w700, fontSize: 11)),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -588,150 +514,107 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  Widget _categoryChips() {
-    final cats = const [
-      ("All", Icons.apps_rounded),
-      ("Mahallah", Icons.home_rounded),
-      ("Cafe", Icons.local_cafe_rounded),
-      ("Faculty", Icons.school_rounded),
-      ("Mall", Icons.store_mall_directory_rounded),
-      ("Transit", Icons.train_rounded),
-    ];
-
-    return SizedBox(
-      height: 46,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: cats.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final c = cats[i].$1;
-          final icon = cats[i].$2;
-          final active = sheetCat == c;
-
-          return GestureDetector(
-            onTap: () => setState(() => sheetCat = c),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: active ? UColors.gold.withAlpha(18) : Colors.white.withAlpha(6),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: active ? UColors.gold : Colors.white.withAlpha(18)),
-              ),
-              child: Row(
-                children: [
-                  Icon(icon, color: active ? UColors.gold : UColors.darkMuted, size: 18),
-                  const SizedBox(width: 8),
-                  Text(c, style: TextStyle(color: active ? UColors.gold : UColors.darkMuted, fontWeight: FontWeight.w900)),
-                ],
-              ),
+  Widget _offerCard({
+    required Color card,
+    required Color border,
+    required Color textMain,
+    required Color muted,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Suggested: ${_estimateLabel()} • ETA ${_etaLabel()}",
+              style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: offerCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Your Offer (RM)",
+              hintText: "e.g. 8",
+              border: OutlineInputBorder(),
+              isDense: true,
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 10),
+          if (offerStatus.isNotEmpty)
+            Text(offerStatus, style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }
 
-  Widget _grabPlusFeatures() {
-    // "buat apa yang grab takde" (but still realistic demo UI)
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Uniserve+ (campus-only perks)",
-            style: TextStyle(color: Colors.white.withAlpha(220), fontWeight: FontWeight.w900)),
-        const SizedBox(height: 10),
-        GlassCard(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            children: [
-              _perkRow(Icons.verified_user_rounded, "Verified Muslimah Driver", "Badge SIS only — safer for sisters."),
-              const SizedBox(height: 10),
-              _perkRow(Icons.meeting_room_rounded, "Mahallah Drop Point", "Choose lobby / gate / block label."),
-              const SizedBox(height: 10),
-              _perkRow(Icons.shield_rounded, "Campus Safety Share", "Generate trip code to share with friend."),
-              const SizedBox(height: 10),
-              _perkRow(Icons.timer_rounded, "ETA inside UIA", "Zone-based ETA — faster than map guessing."),
-              const SizedBox(height: 8),
-              Text("Note: This is UI demo now. Later we connect live drivers + maps.",
-                  style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _perkRow(IconData icon, String title, String sub) {
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color: UColors.teal.withAlpha(20),
-            border: Border.all(color: UColors.teal.withAlpha(120)),
-          ),
-          child: Icon(icon, color: UColors.teal, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 2),
-            Text(sub, style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w700, fontSize: 11)),
-          ]),
-        ),
-      ],
-    );
-  }
-
-  Widget _bottomBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-
+  Widget _bottomBar({
+    required Color card,
+    required Color border,
+    required Color textMain,
+    required Color muted,
+  }) {
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
-        child: GlassCard(
-          padding: const EdgeInsets.all(16),
-          borderColor: UColors.gold.withAlpha(140),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          border: Border(top: BorderSide(color: border)),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: border),
+          ),
           child: Row(
             children: [
               Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, // ✅ CRITICAL: prevent giant bar
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("Total Estimate • ETA ${_etaLabel()}",
                         style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    Text(
-                      _estimateLabel(),
-                      style: TextStyle(
-                        color: UColors.gold,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        shadows: [Shadow(color: UColors.gold.withAlpha(70), blurRadius: 22)],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text("Exclude toll & heavy jam", style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text(_estimateLabel(),
+                        style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 22)),
+                    const SizedBox(height: 2),
+                    Text("Stops: ${stops.length} • Pax add: +RM$paxAdd",
+                        style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w700)),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
+
+              // ✅ open in chrome button
               SizedBox(
                 height: 48,
-                child: PrimaryButton(
-                  text: "CONFIRM BOOKING",
-                  icon: Icons.arrow_forward_rounded,
-                  bg: UColors.gold,
-                  onTap: _confirm,
+                child: OutlinedButton.icon(
+                  onPressed: _openInMapsChrome,
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text("OPEN"),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0B3A8A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: _sendOffer,
+                  icon: const Icon(Icons.local_offer_rounded),
+                  label: const Text("OFFER"),
                 ),
               ),
             ],
@@ -741,29 +624,25 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  void _confirm() {
+  void _sendOffer() {
     if (dropoff == null) {
       _toast("Choose dropoff first.");
       return;
     }
-    _toast("Booking sent (demo).");
+    final offer = int.tryParse(offerCtrl.text.trim());
+    if (offer == null || offer <= 0) {
+      _toast("Enter your offer (RM).");
+      return;
+    }
+
+    setState(() {
+      offerStatus = "Offer sent: RM $offer ✅ Waiting driver response...";
+    });
+    _toast("Offer RM $offer sent ✅");
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? UColors.darkGlass : UColors.lightGlass,
-      ),
-    );
-  }
-
-  // =============== PICKER SHEET (searchable dropdown) ===============
+  // =============== PICKER SHEET ===============
   Future<void> _pickPlace({required _Target target}) async {
-    sheetQuery = "";
-    // keep sheetCat as is (chips)
-
     final picked = await showModalBottomSheet<_Place>(
       context: context,
       isScrollControlled: true,
@@ -772,7 +651,7 @@ class _TransportScreenState extends State<TransportScreen> {
         title: target == _Target.pickup
             ? "Select Pickup"
             : target == _Target.stop
-                ? "Select Stop (+RM3)"
+                ? "Select Stop (+RM3 each)"
                 : "Select Dropoff",
         initialCat: sheetCat,
         places: allPlaces,
@@ -786,11 +665,17 @@ class _TransportScreenState extends State<TransportScreen> {
       if (target == _Target.pickup) {
         pickup = picked;
       } else if (target == _Target.stop) {
-        stop = picked;
+        stops.add(picked);
       } else {
         dropoff = picked;
       }
     });
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
   }
 }
 
@@ -824,7 +709,6 @@ class _PlaceSheetState extends State<_PlaceSheet> {
 
   List<_Place> get filtered {
     final query = q.trim().toLowerCase();
-
     return widget.places.where((p) {
       final catOk = (cat == "All") ? true : (p.cat == cat);
       final qOk = query.isEmpty ? true : p.name.toLowerCase().contains(query);
@@ -835,58 +719,43 @@ class _PlaceSheetState extends State<_PlaceSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fg = isDark ? Colors.white : UColors.lightText;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final card = isDark ? const Color(0xFF0B1220) : Colors.white;
+    final border = isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12);
+    final textMain = isDark ? Colors.white : const Color(0xFF0B1220);
+    final muted = isDark ? Colors.white.withAlpha(170) : Colors.black.withAlpha(130);
 
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: GlassCard(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: border),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // header
               Row(
                 children: [
-                  Expanded(
-                    child: Text(widget.title, style: TextStyle(color: fg, fontWeight: FontWeight.w900, fontSize: 16)),
-                  ),
-                  IconSquareButton(icon: Icons.close_rounded, onTap: () => Navigator.pop(context)),
+                  Expanded(child: Text(widget.title, style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 16))),
+                  IconButton(icon: Icon(Icons.close_rounded, color: muted), onPressed: () => Navigator.pop(context)),
                 ],
               ),
               const SizedBox(height: 12),
 
-              // search
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0B1220) : UColors.lightInput,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isDark ? UColors.darkBorder : UColors.lightBorder),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    Icon(Icons.search_rounded, color: muted),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        onChanged: (v) => setState(() => q = v),
-                        style: TextStyle(color: fg, fontWeight: FontWeight.w700),
-                        decoration: InputDecoration(
-                          hintText: "Search destination...",
-                          hintStyle: TextStyle(color: muted),
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                  ],
+              TextField(
+                onChanged: (v) => setState(() => q = v),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search_rounded),
+                  hintText: "Search destination...",
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
-
               const SizedBox(height: 12),
 
-              // chips
               SizedBox(
                 height: 44,
                 child: ListView(
@@ -898,24 +767,27 @@ class _PlaceSheetState extends State<_PlaceSheet> {
                     _chip("Faculty"),
                     _chip("Mall"),
                     _chip("Transit"),
+                    _chip("Gate"),
+                    _chip("Admin"),
+                    _chip("Health"),
+                    _chip("Mosque"),
+                    _chip("Hall"),
+                    _chip("Mart"),
+                    _chip("Central"),
                   ],
                 ),
               ),
-
               const SizedBox(height: 12),
 
-              // list
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 420),
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: filtered.length,
-                  separatorBuilder: (_, _) => Divider(color: Colors.white.withAlpha(10)),
+                  separatorBuilder: (_, __) => Divider(color: border),
                   itemBuilder: (_, i) {
                     final p = filtered[i];
-                    final tag = p.kind == _Kind.outside
-                        ? "Outside • ${p.cat}"
-                        : "UIA Zone ${p.zone} • ${p.cat}";
+                    final tag = p.kind == _Kind.outside ? "Outside • ${p.cat}" : "UIA Zone ${p.zone} • ${p.cat}";
 
                     final price = (p.kind == _Kind.outside && p.min != null)
                         ? "RM ${p.min}${(p.max != null && p.max != p.min) ? "–${p.max}" : ""}"
@@ -923,9 +795,9 @@ class _PlaceSheetState extends State<_PlaceSheet> {
 
                     return ListTile(
                       onTap: () => Navigator.pop(context, p),
-                      title: Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                      title: Text(p.name, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
                       subtitle: Text(tag, style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
-                      trailing: Text(price, style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900)),
+                      trailing: Text(price, style: const TextStyle(color: Color(0xFF0B3A8A), fontWeight: FontWeight.w900)),
                     );
                   },
                 ),
@@ -941,7 +813,8 @@ class _PlaceSheetState extends State<_PlaceSheet> {
     final active = cat == text;
     return Padding(
       padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
         onTap: () {
           setState(() => cat = text);
           widget.onCatChanged(text);
@@ -949,14 +822,14 @@ class _PlaceSheetState extends State<_PlaceSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: active ? UColors.gold.withAlpha(18) : Colors.white.withAlpha(6),
+            color: active ? const Color(0xFF0B3A8A).withAlpha(28) : Colors.black.withAlpha(6),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: active ? UColors.gold : Colors.white.withAlpha(18)),
+            border: Border.all(color: active ? const Color(0xFF0B3A8A) : Colors.black.withAlpha(12)),
           ),
           child: Text(
             text,
             style: TextStyle(
-              color: active ? UColors.gold : UColors.darkMuted,
+              color: active ? const Color(0xFF0B3A8A) : Colors.black.withAlpha(140),
               fontWeight: FontWeight.w900,
               fontSize: 12,
             ),

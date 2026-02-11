@@ -1,4 +1,13 @@
+// Di bahagian atas file main.dart
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'state/auth_store.dart';
+import 'services/order_store.dart';
+import 'services/print_store.dart';
+
+import 'ui/uniserve_ui.dart';
 import 'package:app_links/app_links.dart'; // 1. IMPORT THIS
 
 import 'screens/home_screen.dart';
@@ -16,15 +25,24 @@ import 'screens/settings_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/explore_screen.dart';
 import 'screens/driver_register_screen.dart';
-import 'screens/marketplace_screen.dart';
+import 'screens/express_driver_screen.dart';
+// FIX: Tambah 'as market' di sini
+import 'screens/marketplace_screen.dart' as market; 
+import 'screens/marketplace_post_screen.dart';
+import 'screens/verify_identity_screen.dart';
 
-// 2. CREATE A GLOBAL KEY (This lets us navigate without a context)
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+void main() {
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider.value(value: OrderStore.I),
+        ChangeNotifierProvider.value(value: PrintStore.I),
+      ],
+      child: const UniserveApp(),
+    ),
+  );
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const UniserveApp());
-}
 
 class UniserveApp extends StatefulWidget {
   const UniserveApp({super.key});
@@ -34,38 +52,11 @@ class UniserveApp extends StatefulWidget {
 }
 
 class _UniserveAppState extends State<UniserveApp> {
-  ThemeMode mode = ThemeMode.dark;
-  late AppLinks _appLinks; // 3. DECLARE APP LINKS
-
-  @override
-  void initState() {
-    super.initState();
-    _initDeepLinks();
-  }
-
-  // 4. THE DEEP LINK LOGIC
-  void _initDeepLinks() async {
-    _appLinks = AppLinks();
-
-    // Handle links when app is in background or opened completely
-    _appLinks.uriLinkStream.listen((Uri? uri) {
-      if (uri != null) {
-        print("Deep link found: ${uri.path}");
-        
-        // This acts as a "Router". If the link is "uniserve://runner", 
-        // the path is "/runner", which matches your route names!
-        navigatorKey.currentState?.pushNamed(uri.path); 
-      }
-    }, onError: (err) {
-      print("Deep link error: $err");
-    });
-  }
-
+  ThemeMode mode = ThemeMode.light;
+  
   void toggleTheme() {
     setState(() {
-      mode = (mode == ThemeMode.dark)
-          ? ThemeMode.light
-          : ThemeMode.dark;
+      mode = (mode == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
     });
   }
 
@@ -78,14 +69,8 @@ class _UniserveAppState extends State<UniserveApp> {
       navigatorKey: navigatorKey, 
 
       themeMode: mode,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
 
       home: HomeScreen(onToggleTheme: toggleTheme),
 
@@ -95,10 +80,14 @@ class _UniserveAppState extends State<UniserveApp> {
         '/barber': (_) => const BarberScreen(),
         '/transport': (_) => const TransportScreen(),
         '/parcel': (_) => const ParcelScreen(),
-        '/print': (_) => const PrintScreen(),
+          '/print': (_) => const PrintServiceScreen(),
         '/photo': (_) => const PhotoScreen(),
         '/express': (_) => const ExpressScreen(),
-        '/marketplace': (_) => const MarketplaceScreen(),
+        
+        // FIX: Panggil guna nama alias 'market'
+        '/marketplace': (_) => const market.MarketplaceScreen(),
+        
+        '/marketplace-post': (_) => const MarketplacePostScreen(),
 
         '/ai': (_) => const AiScreen(),
         '/wallet': (_) => const WalletScreen(),
@@ -106,6 +95,11 @@ class _UniserveAppState extends State<UniserveApp> {
         '/profile': (_) => const ProfileScreen(),
         '/explore': (_) => const ExploreScreen(),
         '/driver-register': (_) => const DriverRegisterScreen(),
+        '/verify-identity': (_) => const VerifyIdentityScreen(),
+        '/express-driver': (_) => const ExpressDriverScreen(),   
+        // Tambah laluan sementara untuk elak error jika tekan butang "More"
+        '/pc-repair': (_) => const market.MarketplaceScreen(),
+        '/rental': (_) => const market.MarketplaceScreen(),
       },
     );
   }

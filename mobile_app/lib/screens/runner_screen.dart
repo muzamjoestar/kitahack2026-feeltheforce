@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import '../ui/uniserve_ui.dart';
+
 import '../theme/colors.dart';
+import '../ui/uniserve_ui.dart';
 
 class RunnerScreen extends StatefulWidget {
   const RunnerScreen({super.key});
@@ -11,256 +11,283 @@ class RunnerScreen extends StatefulWidget {
 }
 
 class _RunnerScreenState extends State<RunnerScreen> {
-  // --- Controllers ---
-  final locationCtrl = TextEditingController();
-  final remarksCtrl = TextEditingController();
-  final manualOrderCtrl = TextEditingController();
-  final manualPriceCtrl = TextEditingController();
-
-  // --- State ---
-  String tab = "menu"; // menu / manual
+  // step1 filters
   String query = "";
   String catFilter = "All"; // All / Cafe / Mart
-  int selectedShopId = -1;
+  String? selectedShopId; // <-- shop id memang String
 
-  // counters
+  // step2 tab
+  String tab = "menu"; // menu / manual
+
+  // step2 quantities for menu items
   final Map<String, int> qty = {};
 
-  // pricing
-  static const runnerFee = 4.0;
-  double tip = 0.0;
+  // step2 manual
+  final TextEditingController manualOrderCtrl = TextEditingController();
+  final TextEditingController manualPriceCtrl = TextEditingController();
 
-  // live ETA demo (local)
-  Timer? _t;
+  // step3 delivery
+  final TextEditingController locationCtrl = TextEditingController();
+  final TextEditingController remarksCtrl = TextEditingController();
+
+  // step4 tip
+  double tip = 2;
+
+  // dummy ETA
   int etaMin = 18;
 
-  // ✅ UIA Gombak cafes + marts (ikut list kau bagi)
-  // Menu bawah ni placeholder je. Nanti kau sambung DB terus.
-  final List<_Shop> shops = const [
-    // --- Cafes (Mahallah) ---
+  // ✅ empty menu const
+  static const List<_MenuItem> _emptyMenu = <_MenuItem>[];
+
+  // shops (DO NOT CHANGE “kedai-kedai” data)
+  // ✅ pastikan _Shop ada const constructor
+  static const List<_Shop> shops = [
     _Shop(
-      id: 101,
-      name: "Cafe Mahallah Halimah",
-      category: "Cafe",
-      zone: 1,
-      color: UColors.success,
-      icon: Icons.restaurant_rounded,
-      menu: [
-        _MenuItem("Nasi Goreng", 7.50),
-        _MenuItem("Mee Goreng", 7.00),
-        _MenuItem("Teh Ais", 2.50),
-      ],
+      id: "cu_mart_central",
+      name: "CU Mart (IIUM Gombak)",
+      cat: "Mart",
+      loc: "Central",
+      eta: 10,
+      rating: 4.6,
+      accent: UColors.gold,
+      menu: _emptyMenu,
     ),
     _Shop(
-      id: 102,
-      name: "Cafe Mahallah Hafsa",
-      category: "Cafe",
-      zone: 1,
-      color: UColors.success,
-      icon: Icons.restaurant_rounded,
-      menu: [
-        _MenuItem("Nasi Ayam", 8.50),
-        _MenuItem("Bihun Sup", 7.00),
-        _MenuItem("Milo Ais", 3.00),
-      ],
+      id: "co_mart_central",
+      name: "Co-Mart Central",
+      cat: "Mart",
+      loc: "Central",
+      eta: 10,
+      rating: 4.5,
+      accent: UColors.cyan,
+      menu: _emptyMenu,
     ),
     _Shop(
-      id: 201,
-      name: "Cafe Mahallah Zubair",
-      category: "Cafe",
-      zone: 2,
-      color: UColors.warning,
-      icon: Icons.home_rounded,
-      menu: [
-        _MenuItem("Nasi Goreng USA", 8.50),
-        _MenuItem("Chicken Chop", 12.00),
-        _MenuItem("Air Bandung", 3.50),
-      ],
-    ),
-    _Shop(
-      id: 202,
-      name: "Cafe Mahallah Ali",
-      category: "Cafe",
-      zone: 2,
-      color: UColors.warning,
-      icon: Icons.home_rounded,
-      menu: [
-        _MenuItem("Nasi Lemak", 4.50),
-        _MenuItem("Mee Kari", 7.50),
-        _MenuItem("Teh O Ais", 2.00),
-      ],
+      id: "7e_iium",
+      name: "7-Eleven (IIUM Gombak)",
+      cat: "Mart",
+      loc: "Central",
+      eta: 10,
+      rating: 4.4,
+      accent: UColors.info,
+      menu: _emptyMenu,
     ),
 
-    // --- Marts (SAC) ---
-    _Shop(
-      id: 210,
-      name: "ZC Mart (SAC)",
-      category: "Mart",
-      zone: 2,
-      color: UColors.info,
-      icon: Icons.store_rounded,
-      menu: [
-        _MenuItem("Nescafe Can", 4.00),
-        _MenuItem("Roti", 2.00),
-        _MenuItem("Maggi Cup", 3.00),
-      ],
-    ),
-    _Shop(
-      id: 211,
-      name: "CU Mart UIA (SAC)",
-      category: "Mart",
-      zone: 2,
-      color: UColors.cyan,
-      icon: Icons.local_mall_rounded,
-      menu: [
-        _MenuItem("Mineral Water", 1.50),
-        _MenuItem("Chocolate", 3.50),
-        _MenuItem("Sandwich", 5.50),
-      ],
-    ),
+    // ===== Mahallah (Brothers) =====
+    _Shop(id: "mh_salahuddin_mart", name: "Mahallah Salahuddin Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.purple, menu: _emptyMenu),
+    _Shop(id: "mh_salahuddin_cafe", name: "Mahallah Salahuddin Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_zubair_mart", name: "Mahallah Zubair Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.cyan, menu: _emptyMenu),
+    _Shop(id: "mh_zubair_cafe", name: "Mahallah Zubair Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_ali_mart", name: "Mahallah Ali Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.info, menu: _emptyMenu),
+    _Shop(id: "mh_ali_cafe", name: "Mahallah Ali Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_uthman_mart", name: "Mahallah Uthman Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.pink, menu: _emptyMenu),
+    _Shop(id: "mh_uthman_cafe", name: "Mahallah Uthman Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_umar_mart", name: "Mahallah Umar Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.success, menu: _emptyMenu),
+    _Shop(id: "mh_umar_cafe", name: "Mahallah Umar Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+
+    // ===== Mahallah (Sisters) =====
+    _Shop(id: "mh_aishah_mart", name: "Mahallah Aishah Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.cyan, menu: _emptyMenu),
+    _Shop(id: "mh_aishah_cafe", name: "Mahallah Aishah Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_hafsa_mart", name: "Mahallah Hafsa Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.purple, menu: _emptyMenu),
+    _Shop(id: "mh_hafsa_cafe", name: "Mahallah Hafsa Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_halimah_mart", name: "Mahallah Halimah Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.info, menu: _emptyMenu),
+    _Shop(id: "mh_halimah_cafe", name: "Mahallah Halimah Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_asma_mart", name: "Mahallah Asma' Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.pink, menu: _emptyMenu),
+    _Shop(id: "mh_asma_cafe", name: "Mahallah Asma' Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_maryam_mart", name: "Mahallah Maryam Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.success, menu: _emptyMenu),
+    _Shop(id: "mh_maryam_cafe", name: "Mahallah Maryam Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+    _Shop(id: "mh_safiyyah_mart", name: "Mahallah Safiyyah Mart", cat: "Mart", loc: "Mahallah", eta: 12, rating: 4.2, accent: UColors.cyan, menu: _emptyMenu),
+    _Shop(id: "mh_safiyyah_cafe", name: "Mahallah Safiyyah Cafe", cat: "Cafe", loc: "Mahallah", eta: 12, rating: 4.1, accent: UColors.warning, menu: _emptyMenu),
+
+    // ===== Kulliyyah / Faculty =====
+    _Shop(id: "kict_cafe", name: "KICT Cafe", cat: "Cafe", loc: "Kulliyyah", eta: 10, rating: 4.0, accent: UColors.teal, menu: _emptyMenu),
+    _Shop(id: "koe_cafe", name: "KOE Cafe", cat: "Cafe", loc: "Kulliyyah", eta: 10, rating: 4.0, accent: UColors.teal, menu: _emptyMenu),
+    _Shop(id: "kulliyyah_mart", name: "Faculty Mini Mart", cat: "Mart", loc: "Kulliyyah", eta: 10, rating: 4.0, accent: UColors.info, menu: _emptyMenu),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _t = Timer.periodic(const Duration(seconds: 3), (_) {
-      // demo live ETA yang nampak premium
-      setState(() {
-        final s = DateTime.now().second;
-        etaMin = (14 + (s % 9)).clamp(12, 30);
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _t?.cancel();
-    locationCtrl.dispose();
-    remarksCtrl.dispose();
-    manualOrderCtrl.dispose();
-    manualPriceCtrl.dispose();
-    super.dispose();
-  }
-
+  // ---------- COMPUTED ----------
   List<_Shop> get filtered {
+    Iterable<_Shop> x = shops;
+
+    if (catFilter != "All") {
+      x = x.where((e) => e.category == catFilter);
+    }
+
     final q = query.trim().toLowerCase();
-    return shops.where((s) {
-      final okCat = (catFilter == "All") || (s.category == catFilter);
-      final okQ = q.isEmpty || s.name.toLowerCase().contains(q);
-      return okCat && okQ;
-    }).toList();
+    if (q.isNotEmpty) {
+      x = x.where((e) => e.name.toLowerCase().contains(q));
+    }
+
+    return x.toList();
   }
 
   _Shop? get selectedShop {
-    final list = filtered;
-    if (selectedShopId < 0) return null;
+    final id = selectedShopId;
+    if (id == null) return null;
     try {
-      return list.firstWhere((x) => x.id == selectedShopId);
+      return shops.firstWhere((s) => s.id == id);
     } catch (_) {
       return null;
     }
   }
 
-  double get itemsTotal {
-    if (tab == "manual") {
-      final v = double.tryParse(manualPriceCtrl.text.trim());
-      return (v ?? 0).clamp(0, 999999);
-    }
-    final shop = selectedShop;
-    if (shop == null) return 0;
-    double sum = 0;
-    for (final m in shop.menu) {
-      final k = "${shop.id}::${m.title}";
-      sum += (qty[k] ?? 0) * m.price;
+  int get totalItems {
+    int sum = 0;
+    for (final v in qty.values) {
+      sum += v;
     }
     return sum;
   }
 
+  double get itemsTotal {
+    if (tab == "manual") {
+      return double.tryParse(manualPriceCtrl.text.trim()) ?? 0;
+    }
+    final shop = selectedShop;
+    if (shop == null) return 0;
+
+    double sum = 0;
+    for (final m in shop.menu) {
+      final k = "${shop.id}::${m.title}";
+      final c = qty[k] ?? 0;
+      sum += m.price * c;
+    }
+    return sum;
+  }
+
+  double get runnerFee {
+    // dummy: base + small distance
+    final z = selectedShop?.zone ?? 1;
+    return 3 + (z - 1) * 1.0; // zone1=3, zone2=4, zone3=5
+  }
+
   double get total => itemsTotal + runnerFee + tip;
 
-  int get totalItems {
-    int c = 0;
-    qty.forEach((_, v) => c += v);
-    return c;
+  @override
+  void dispose() {
+    manualOrderCtrl.dispose();
+    manualPriceCtrl.dispose();
+    locationCtrl.dispose();
+    remarksCtrl.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // ✅ theme-adaptive palette
+    final textMain = isDark ? UColors.darkText : UColors.lightText;
     final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final surface = isDark ? const Color(0xFF0F172A) : UColors.lightCard;
+    final surface2 = isDark ? const Color(0xFF020617) : const Color(0xFFF8FAFC);
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    final w = MediaQuery.of(context).size.width;
+    final isWide = w >= 720; // ✅ untuk buat layout "ketepi" bila screen besar
+
+    final left = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _hero(isDark: isDark, textMain: textMain, muted: muted, surface: surface, surface2: surface2),
+        const SizedBox(height: 12),
+        _livePills(textMain: textMain, muted: muted),
+        const SizedBox(height: 18),
+        _step("1. CHOOSE SHOP"),
+        const SizedBox(height: 10),
+        _searchAndFilters(textMain: textMain, muted: muted, border: border, isDark: isDark),
+        const SizedBox(height: 12),
+        if (isWide)
+          // ✅ wide: list vertical (tak panjang kebawah)
+          Expanded(child: _shopListVertical(textMain: textMain, muted: muted, isDark: isDark))
+        else
+          // ✅ small: scroll horizontal macam screenshot
+          _shopCardsScroller(textMain: textMain, muted: muted, isDark: isDark),
+      ],
+    );
+
+    final right = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _step("2. WHAT TO EAT?"),
+        const SizedBox(height: 10),
+        _tabSwitcher(textMain: textMain, muted: muted, surface: surface, border: border),
+        const SizedBox(height: 12),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                if (tab == "menu")
+                  _menuList(textMain: textMain, muted: muted, surface: surface, border: border, isDark: isDark)
+                else
+                  _manualBox(textMain: textMain, muted: muted),
+                const SizedBox(height: 18),
+                _step("3. DELIVERY DETAILS"),
+                const SizedBox(height: 10),
+                PremiumField(
+                  label: "Location",
+                  hint: "Room / Block (e.g. Zubair C-2-10)",
+                  controller: locationCtrl,
+                  icon: Icons.location_on_rounded,
+                ),
+                const SizedBox(height: 12),
+                PremiumField(
+                  label: "Remarks",
+                  hint: "Instructions (e.g. Leave at door)",
+                  controller: remarksCtrl,
+                  icon: Icons.sticky_note_2_rounded,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 18),
+                _step("4. TIP (OPTIONAL)"),
+                const SizedBox(height: 10),
+                _tipSlider(textMain: textMain, muted: muted, isDark: isDark),
+                const SizedBox(height: 140),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
 
     return PremiumScaffold(
-      title: "Food Runner",
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: IconSquareButton(
-            icon: Icons.flash_on_rounded,
-            onTap: () => _toast("Rush mode (UI ready) — nanti sambung DB."),
-          ),
-        )
-      ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _hero(muted),
-          const SizedBox(height: 16),
-
-          _livePills(muted),
-          const SizedBox(height: 16),
-
-          _step("1. PICK SHOP"),
-          const SizedBox(height: 10),
-          _searchAndFilters(muted),
-          const SizedBox(height: 12),
-          _shopCardsScroller(),
-          const SizedBox(height: 18),
-
-          _step("2. ORDER"),
-          const SizedBox(height: 10),
-          _tabSwitcher(),
-          const SizedBox(height: 12),
-          if (tab == "menu") _menuList(muted) else _manualBox(muted),
-          const SizedBox(height: 18),
-
-          _step("3. DELIVERY DETAILS"),
-          const SizedBox(height: 10),
-          PremiumField(
-            label: "Location",
-            hint: "Room / Block (e.g. Zubair C-2-10)",
-            controller: locationCtrl,
-            icon: Icons.location_on_rounded,
-          ),
-          const SizedBox(height: 12),
-          PremiumField(
-            label: "Remarks",
-            hint: "Instructions (e.g. Leave at door)",
-            controller: remarksCtrl,
-            icon: Icons.sticky_note_2_rounded,
-            maxLines: 3,
-          ),
-
-          const SizedBox(height: 18),
-          _step("4. TIP (OPTIONAL)"),
-          const SizedBox(height: 10),
-          _tipSlider(muted),
-
-          const SizedBox(height: 140),
-        ],
-      ),
-      bottomBar: _bottomActionBar(muted),
+      title: "Runner",
+      body: isWide
+          ? Row(
+              children: [
+                Expanded(child: left),
+                const SizedBox(width: 14),
+                Expanded(child: right),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                left,
+                const SizedBox(height: 18),
+                // for small screen: order part below
+                SizedBox(height: 520, child: right),
+              ],
+            ),
+      bottomBar: _bottomActionBar(textMain: textMain, muted: muted, isDark: isDark, border: border),
     );
   }
 
   // ---------------- UI ----------------
 
-  Widget _hero(Color muted) {
+  Widget _hero({
+    required bool isDark,
+    required Color textMain,
+    required Color muted,
+    required Color surface,
+    required Color surface2,
+  }) {
     return GlassCard(
       borderColor: UColors.gold.withAlpha(120),
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFF0F172A), Color(0xFF020617)],
+        colors: isDark ? const [Color(0xFF0F172A), Color(0xFF020617)] : [surface, surface2],
       ),
       child: Row(
         children: [
@@ -270,7 +297,7 @@ class _RunnerScreenState extends State<RunnerScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               color: UColors.gold.withAlpha(18),
-              border: Border.all(color: Colors.white.withAlpha(18)),
+              border: Border.all(color: (isDark ? Colors.white : UColors.lightBorder).withAlpha(40)),
             ),
             child: const Icon(Icons.directions_run_rounded, color: UColors.gold, size: 26),
           ),
@@ -282,15 +309,17 @@ class _RunnerScreenState extends State<RunnerScreen> {
                 Text(
                   "Hungry? We got you.",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    shadows: [Shadow(color: UColors.gold.withAlpha(70), blurRadius: 20)],
+                    shadows: [Shadow(color: UColors.gold.withAlpha(50), blurRadius: 16)],
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text("UIA Gombak • Cafes & marts • Premium checkout",
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
+                Text(
+                  "UIA Gombak • Cafes & marts • Premium checkout",
+                  style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -299,7 +328,10 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _livePills(Color muted) {
+  Widget _livePills({
+    required Color textMain,
+    required Color muted,
+  }) {
     final shop = selectedShop;
     return Row(
       children: [
@@ -312,8 +344,10 @@ class _RunnerScreenState extends State<RunnerScreen> {
                 const Icon(Icons.timer_rounded, color: UColors.teal),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text("ETA ~ $etaMin mins",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                  child: Text(
+                    "ETA ~ $etaMin mins",
+                    style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
+                  ),
                 ),
               ],
             ),
@@ -332,7 +366,7 @@ class _RunnerScreenState extends State<RunnerScreen> {
                   child: Text(
                     shop == null ? "No shop selected" : "Zone ${shop.zone} • ${shop.category}",
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                    style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],
@@ -355,36 +389,37 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _searchAndFilters(Color muted) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-    final bg = isDark ? const Color(0xFF0F172A) : UColors.lightInput;
-    final fg = isDark ? Colors.white : UColors.lightText;
+  Widget _searchAndFilters({
+    required Color textMain,
+    required Color muted,
+    required Color border,
+    required bool isDark,
+  }) {
+    final fieldBg = isDark ? const Color(0xFF0F172A) : UColors.lightInput;
 
     return Column(
       children: [
-        // search
         Container(
           decoration: BoxDecoration(
-            color: bg,
+            color: fieldBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: border),
           ),
           child: Row(
             children: [
               const SizedBox(width: 12),
-              Icon(Icons.search_rounded, color: fg.withAlpha(170)),
+              Icon(Icons.search_rounded, color: muted),
               const SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   onChanged: (v) => setState(() {
                     query = v;
-                    selectedShopId = -1;
+                    selectedShopId = null;
                   }),
-                  style: TextStyle(color: fg, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: textMain, fontWeight: FontWeight.w700),
                   decoration: InputDecoration(
-                    hintText: "Search cafe/mart...",
-                    hintStyle: TextStyle(color: fg.withAlpha(150)),
+                    hintText: "Search cafe, mart or kulliyyah...",
+                    hintStyle: TextStyle(color: muted),
                     border: InputBorder.none,
                   ),
                 ),
@@ -394,8 +429,6 @@ class _RunnerScreenState extends State<RunnerScreen> {
           ),
         ),
         const SizedBox(height: 10),
-
-        // filter chips
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -404,22 +437,18 @@ class _RunnerScreenState extends State<RunnerScreen> {
             return GestureDetector(
               onTap: () => setState(() {
                 catFilter = c;
-                selectedShopId = -1;
+                selectedShopId = null;
               }),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: active ? UColors.gold : Colors.white.withAlpha(10),
+                  color: active ? UColors.gold : (isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(8)),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: active ? UColors.gold : Colors.white.withAlpha(18)),
+                  border: Border.all(color: active ? UColors.gold : (isDark ? Colors.white.withAlpha(18) : border)),
                 ),
                 child: Text(
                   c,
-                  style: TextStyle(
-                    color: active ? Colors.black : Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: active ? Colors.black : textMain, fontWeight: FontWeight.w900, fontSize: 12),
                 ),
               ),
             );
@@ -429,16 +458,21 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _shopCardsScroller() {
+  // ✅ small screen: scroller horizontal
+  Widget _shopCardsScroller({
+    required Color textMain,
+    required Color muted,
+    required bool isDark,
+  }) {
     final list = filtered;
 
     if (list.isEmpty) {
       return GlassCard(
-        child: const Column(
+        child: Column(
           children: [
-            Icon(Icons.search_off_rounded, color: UColors.darkMuted, size: 34),
-            SizedBox(height: 10),
-            Text("No result.", style: TextStyle(color: UColors.darkMuted, fontWeight: FontWeight.w800)),
+            Icon(Icons.search_off_rounded, color: muted, size: 34),
+            const SizedBox(height: 10),
+            Text("No result.", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
           ],
         ),
       );
@@ -449,7 +483,7 @@ class _RunnerScreenState extends State<RunnerScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: list.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           final s = list[i];
           final active = s.id == selectedShopId;
@@ -461,11 +495,11 @@ class _RunnerScreenState extends State<RunnerScreen> {
               width: 210,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: active ? UColors.gold.withAlpha(18) : Colors.white.withAlpha(6),
+                color: active ? UColors.gold.withAlpha(isDark ? 18 : 30) : (isDark ? Colors.white.withAlpha(6) : Colors.black.withAlpha(4)),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: active ? UColors.gold : Colors.white.withAlpha(18)),
+                border: Border.all(color: active ? UColors.gold : (isDark ? Colors.white.withAlpha(18) : UColors.lightBorder)),
                 boxShadow: active
-                    ? [BoxShadow(color: Colors.black.withAlpha(90), blurRadius: 22, offset: const Offset(0, 10))]
+                    ? [BoxShadow(color: Colors.black.withAlpha(70), blurRadius: 18, offset: const Offset(0, 10))]
                     : null,
               ),
               child: Column(
@@ -478,9 +512,9 @@ class _RunnerScreenState extends State<RunnerScreen> {
                         height: 46,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
-                          color: active ? UColors.gold : const Color(0xFF334155),
+                          color: active ? UColors.gold : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                         ),
-                        child: Icon(s.icon, color: active ? Colors.black : Colors.white),
+                        child: Icon(s.icon, color: active ? Colors.black : textMain),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -488,7 +522,7 @@ class _RunnerScreenState extends State<RunnerScreen> {
                           s.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+                          style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
                         ),
                       ),
                     ],
@@ -512,22 +546,19 @@ class _RunnerScreenState extends State<RunnerScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(8),
+                          color: (isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(6)),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white.withAlpha(18)),
+                          border: Border.all(color: (isDark ? Colors.white.withAlpha(18) : UColors.lightBorder)),
                         ),
                         child: Text(
                           "ZONE ${s.zone}",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10),
+                          style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 10),
                         ),
                       ),
                     ],
                   ),
                   const Spacer(),
-                  Text(
-                    "Tap to view menu",
-                    style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w800, fontSize: 11),
-                  ),
+                  Text("Tap to view menu", style: TextStyle(color: muted, fontWeight: FontWeight.w800, fontSize: 11)),
                 ],
               ),
             ),
@@ -537,25 +568,114 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _tabSwitcher() {
+  // ✅ wide screen: list vertical supaya tak memanjang bawah
+  Widget _shopListVertical({
+    required Color textMain,
+    required Color muted,
+    required bool isDark,
+  }) {
+    final list = filtered;
+    if (list.isEmpty) {
+      return GlassCard(
+        child: Column(
+          children: [
+            Icon(Icons.search_off_rounded, color: muted, size: 34),
+            const SizedBox(height: 10),
+            Text("No result.", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      );
+    }
+
+    return GlassCard(
+      padding: const EdgeInsets.all(10),
+      child: ListView.separated(
+        itemCount: list.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, i) {
+          final s = list[i];
+          final active = s.id == selectedShopId;
+          final badgeColor = s.category == "Mart" ? UColors.cyan : UColors.success;
+
+          return GestureDetector(
+            onTap: () => setState(() => selectedShopId = s.id),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: active ? UColors.gold.withAlpha(isDark ? 14 : 22) : (isDark ? Colors.white.withAlpha(6) : Colors.black.withAlpha(4)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: active ? UColors.gold : (isDark ? Colors.white.withAlpha(16) : UColors.lightBorder)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: active ? UColors.gold : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                    ),
+                    child: Icon(s.icon, color: active ? Colors.black : textMain),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: badgeColor.withAlpha(22),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: badgeColor.withAlpha(110)),
+                              ),
+                              child: Text(s.category.toUpperCase(), style: TextStyle(color: badgeColor, fontWeight: FontWeight.w900, fontSize: 10)),
+                            ),
+                            const SizedBox(width: 8),
+                            Text("Zone ${s.zone}", style: TextStyle(color: muted, fontWeight: FontWeight.w800, fontSize: 11)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(active ? Icons.check_circle_rounded : Icons.chevron_right_rounded, color: active ? UColors.gold : muted),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tabSwitcher({
+    required Color textMain,
+    required Color muted,
+    required Color surface,
+    required Color border,
+  }) {
     final isMenu = tab == "menu";
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: surface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withAlpha(18)),
+        border: Border.all(color: border),
       ),
       child: Row(
         children: [
-          Expanded(child: _tabBtn("Popular Menu", isMenu, () => setState(() => tab = "menu"))),
-          Expanded(child: _tabBtn("Custom Order", !isMenu, () => setState(() => tab = "manual"))),
+          Expanded(child: _tabBtn("Popular Menu", isMenu, () => setState(() => tab = "menu"), textMain, muted)),
+          Expanded(child: _tabBtn("Custom Order", !isMenu, () => setState(() => tab = "manual"), textMain, muted)),
         ],
       ),
     );
   }
 
-  Widget _tabBtn(String text, bool active, VoidCallback onTap) {
+  Widget _tabBtn(String text, bool active, VoidCallback onTap, Color textMain, Color muted) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -567,27 +687,42 @@ class _RunnerScreenState extends State<RunnerScreen> {
         child: Center(
           child: Text(
             text,
-            style: TextStyle(
-              color: active ? Colors.black : UColors.darkMuted,
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: active ? Colors.black : muted, fontWeight: FontWeight.w900, fontSize: 12),
           ),
         ),
       ),
     );
   }
 
-  Widget _menuList(Color muted) {
+  Widget _menuList({
+    required Color textMain,
+    required Color muted,
+    required Color surface,
+    required Color border,
+    required bool isDark,
+  }) {
     final shop = selectedShop;
     if (shop == null) {
       return GlassCard(
         child: Column(
-          children: const [
-            Icon(Icons.storefront_outlined, color: UColors.darkMuted, size: 34),
-            SizedBox(height: 10),
-            Text("Select a shop above to see the menu.",
-                style: TextStyle(color: UColors.darkMuted, fontWeight: FontWeight.w800)),
+          children: [
+            Icon(Icons.storefront_outlined, color: muted, size: 34),
+            const SizedBox(height: 10),
+            Text("Select a shop above to see the menu.", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      );
+    }
+
+    if (shop.menu.isEmpty) {
+      return GlassCard(
+        child: Column(
+          children: [
+            Icon(Icons.restaurant_menu_rounded, color: muted, size: 34),
+            const SizedBox(height: 10),
+            Text("Menu belum diisi untuk ${shop.name}.", style: TextStyle(color: muted, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
+            const SizedBox(height: 6),
+            Text("Boleh guna Custom Order sementara.", style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12), textAlign: TextAlign.center),
           ],
         ),
       );
@@ -597,7 +732,6 @@ class _RunnerScreenState extends State<RunnerScreen> {
       children: shop.menu.map((m) {
         final k = "${shop.id}::${m.title}";
         final c = qty[k] ?? 0;
-
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: GlassCard(
@@ -605,30 +739,27 @@ class _RunnerScreenState extends State<RunnerScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(m.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 4),
-                    Text("RM ${m.price.toStringAsFixed(2)}",
-                        style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w700)),
-                  ]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(m.title, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 4),
+                      Text("RM ${m.price.toStringAsFixed(2)}", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: surface,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.white.withAlpha(18)),
+                    border: Border.all(color: border),
                   ),
                   child: Row(
                     children: [
-                      _cBtn("-", () => setState(() => qty[k] = (c - 1).clamp(0, 99))),
-                      SizedBox(
-                        width: 26,
-                        child: Center(
-                          child: Text("$c", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                        ),
-                      ),
-                      _cBtn("+", () => setState(() => qty[k] = (c + 1).clamp(0, 99)), plus: true),
+                      _cBtn("-", () => setState(() => qty[k] = (c - 1).clamp(0, 99)), isDark: isDark, textMain: textMain),
+                      SizedBox(width: 26, child: Center(child: Text("$c", style: TextStyle(color: textMain, fontWeight: FontWeight.w900)))),
+                      _cBtn("+", () => setState(() => qty[k] = (c + 1).clamp(0, 99)), plus: true, isDark: isDark, textMain: textMain),
                     ],
                   ),
                 ),
@@ -640,9 +771,15 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _cBtn(String t, VoidCallback onTap, {bool plus = false}) {
-    final bg = plus ? UColors.gold : const Color(0xFF334155);
-    final fg = plus ? Colors.black : Colors.white;
+  Widget _cBtn(
+    String t,
+    VoidCallback onTap, {
+    bool plus = false,
+    required bool isDark,
+    required Color textMain,
+  }) {
+    final bg = plus ? UColors.gold : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0));
+    final fg = plus ? Colors.black : textMain;
 
     return GestureDetector(
       onTap: onTap,
@@ -655,18 +792,21 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _manualBox(Color muted) {
+  Widget _manualBox({
+    required Color textMain,
+    required Color muted,
+  }) {
     return Column(
       children: [
         GlassCard(
           child: TextField(
             controller: manualOrderCtrl,
             maxLines: 4,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-            decoration: const InputDecoration(
+            style: TextStyle(color: textMain, fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
               border: InputBorder.none,
               hintText: "Type your order here (e.g. Nasi Goreng USA tak nak sayur...)",
-              hintStyle: TextStyle(color: UColors.darkMuted),
+              hintStyle: TextStyle(color: muted),
             ),
           ),
         ),
@@ -679,13 +819,16 @@ class _RunnerScreenState extends State<RunnerScreen> {
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 8),
-        Text("Manual order is perfect for any cafe not listed.",
-            style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
+        Text("Custom order sesuai untuk mana-mana cafe.", style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
       ],
     );
   }
 
-  Widget _tipSlider(Color muted) {
+  Widget _tipSlider({
+    required Color textMain,
+    required Color muted,
+    required bool isDark,
+  }) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       borderColor: UColors.teal.withAlpha(120),
@@ -694,12 +837,8 @@ class _RunnerScreenState extends State<RunnerScreen> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text("Tip runner (optional)",
-                    style: TextStyle(color: Colors.white.withAlpha(220), fontWeight: FontWeight.w900)),
-              ),
-              Text("RM ${tip.toStringAsFixed(0)}",
-                  style: const TextStyle(color: UColors.teal, fontWeight: FontWeight.w900)),
+              Expanded(child: Text("Tip runner (optional)", style: TextStyle(color: textMain, fontWeight: FontWeight.w900))),
+              Text("RM ${tip.toStringAsFixed(0)}", style: const TextStyle(color: UColors.teal, fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 10),
@@ -710,46 +849,48 @@ class _RunnerScreenState extends State<RunnerScreen> {
             divisions: 10,
             onChanged: (v) => setState(() => tip = v),
             activeColor: UColors.teal,
-            inactiveColor: Colors.white.withAlpha(18),
+            inactiveColor: (isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(10)),
           ),
-          Text("Small tip = faster acceptance (nanti kau boleh buat logic DB).",
-              style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11)),
+          Text("Small tip = faster acceptance.", style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11)),
         ],
       ),
     );
   }
 
-  Widget _bottomActionBar(Color muted) {
+  Widget _bottomActionBar({
+    required Color textMain,
+    required Color muted,
+    required bool isDark,
+    required Color border,
+  }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _rowLine("Items", tab == "manual" ? "Manual" : "$totalItems item(s)"),
+          _rowLine("Items", tab == "manual" ? "Custom" : "$totalItems item(s)", muted, textMain),
           const SizedBox(height: 8),
-          _rowLine("Runner Fee", "RM ${runnerFee.toStringAsFixed(0)}", valueColor: UColors.warning),
+          _rowLine("Runner Fee", "RM ${runnerFee.toStringAsFixed(0)}", muted, textMain, valueColor: UColors.warning),
           const SizedBox(height: 8),
-          _rowLine("Tip", "RM ${tip.toStringAsFixed(0)}", valueColor: UColors.teal),
+          _rowLine("Tip", "RM ${tip.toStringAsFixed(0)}", muted, textMain, valueColor: UColors.teal),
           const SizedBox(height: 10),
-          Divider(color: Colors.white.withAlpha(18)),
+          Divider(color: (isDark ? Colors.white.withAlpha(18) : border)),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text("Total To Pay", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 2),
-                  const Text("CASH / QR", style: TextStyle(color: UColors.success, fontSize: 11, fontWeight: FontWeight.w900)),
-                ]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Total To Pay", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    const Text("CASH / QR", style: TextStyle(color: UColors.success, fontSize: 11, fontWeight: FontWeight.w900)),
+                  ],
+                ),
               ),
               Text(
                 "RM ${total.toStringAsFixed(0)}",
-                style: TextStyle(
-                  color: UColors.gold,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  shadows: [Shadow(color: UColors.gold.withAlpha(70), blurRadius: 20)],
-                ),
+                style: TextStyle(color: UColors.gold, fontSize: 28, fontWeight: FontWeight.w900, shadows: [Shadow(color: UColors.gold.withAlpha(50), blurRadius: 16)]),
               ),
             ],
           ),
@@ -768,14 +909,12 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 
-  Widget _rowLine(String a, String b, {Color? valueColor}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+  Widget _rowLine(String a, String b, Color muted, Color textMain, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(a, style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
-        Text(b, style: TextStyle(color: valueColor ?? Colors.white, fontWeight: FontWeight.w900)),
+        Text(b, style: TextStyle(color: valueColor ?? textMain, fontWeight: FontWeight.w900)),
       ],
     );
   }
@@ -798,7 +937,7 @@ class _RunnerScreenState extends State<RunnerScreen> {
       }
     } else {
       if (manualOrderCtrl.text.trim().isEmpty) {
-        _toast("Type your manual order.");
+        _toast("Type your custom order.");
         return;
       }
       if (itemsTotal <= 0) {
@@ -822,24 +961,46 @@ class _RunnerScreenState extends State<RunnerScreen> {
 }
 
 // ---------------- Models ----------------
+
 class _Shop {
-  final int id;
+  final String id;
   final String name;
-  final String category; // Cafe / Mart
-  final int zone; // 1 / 2 / 3
-  final Color color;
-  final IconData icon;
+  final String cat; // Cafe / Mart
+  final String loc; // Central / Mahallah / Kulliyyah
+  final int eta;
+  final double rating;
+  final Color accent;
   final List<_MenuItem> menu;
 
   const _Shop({
     required this.id,
     required this.name,
-    required this.category,
-    required this.zone,
-    required this.color,
-    required this.icon,
+    required this.cat,
+    required this.loc,
+    required this.eta,
+    required this.rating,
+    required this.accent,
     required this.menu,
   });
+
+  // helpers untuk UI lama
+  String get category => cat;
+
+  // dummy zoning
+  int get zone {
+    switch (loc) {
+      case "Central":
+        return 1;
+      case "Kulliyyah":
+        return 1;
+      case "Mahallah":
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
+  IconData get icon => cat == "Mart" ? Icons.storefront_rounded : Icons.local_cafe_rounded;
 }
 
 class _MenuItem {

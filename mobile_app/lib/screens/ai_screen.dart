@@ -73,7 +73,7 @@ class _AiScreenState extends State<AiScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: quick.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, i) => _chip(quick[i]),
             ),
           ),

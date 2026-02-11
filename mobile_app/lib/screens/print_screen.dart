@@ -1,463 +1,381 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
-import '../ui/uniserve_ui.dart';
-import '../theme/colors.dart';
-import '../services/print_store.dart';
-
-class PrintScreen extends StatefulWidget {
-  const PrintScreen({super.key});
+/// PRINT SERVICE screen
+/// - User request orang lain printkan (bukan print sendiri)
+/// - Multi-files (unlimited): boleh pick banyak & add berkali-kali
+/// - Button "REQUEST PRINT" warna biru pekat bila ready
+class PrintServiceScreen extends StatefulWidget {
+  const PrintServiceScreen({super.key});
 
   @override
-  State<PrintScreen> createState() => _PrintScreenState();
+  State<PrintServiceScreen> createState() => _PrintServiceScreenState();
 }
 
-class _PrintScreenState extends State<PrintScreen> {
-  File? pickedFile;
-  String fileName = "";
-  int fileBytes = 0;
+class _PrintServiceScreenState extends State<PrintServiceScreen> {
+  // ---------- FORM ----------
+  final TextEditingController locationCtrl = TextEditingController();
+  final TextEditingController notesCtrl = TextEditingController();
 
-  String paper = "A4";
-  bool color = false;
-  bool duplex = true;
+  // printing options
+  bool isColor = false;
+  bool isDoubleSided = false;
   int copies = 1;
-  String pages = "All";
-  bool binding = false;
-  bool stapler = false;
+  String paper = "A4"; // A4 / A3
+  String quality = "Standard"; // Standard / High
 
-  final noteCtrl = TextEditingController();
+  // files (unlimited)
+  final List<_PickedFile> files = [];
+
+  bool get hasFiles => files.isNotEmpty;
+
+  // ---------- THEME HELPERS (no dependency) ----------
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _fg => _isDark ? Colors.white : const Color(0xFF0F172A);
+  Color get _muted => _isDark ? Colors.white.withAlpha(170) : const Color(0xFF475569);
+  Color get _card => _isDark ? const Color(0xFF0B1220) : Colors.white;
+  Color get _bg => _isDark ? const Color(0xFF020617) : const Color(0xFFF8FAFC);
+  Color get _border => _isDark ? Colors.white.withAlpha(18) : const Color(0xFFE2E8F0);
+
+  // blue pekat
+  static const Color _primaryBlue = Color(0xFF2563EB);
 
   @override
   void dispose() {
-    noteCtrl.dispose();
+    locationCtrl.dispose();
+    notesCtrl.dispose();
     super.dispose();
   }
 
-  // Simple pricing (you can adjust)
-  double get price {
-    if (pickedFile == null) return 0;
+  // ---------- FILE PICK ----------
+  Future<void> _pickFiles() async {
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: const ["pdf", "png", "jpg", "jpeg"],
+      );
+      if (res == null || res.files.isEmpty) return;
 
-    // base per copy
-    double base = 1.0; // B/W A4 default
-    if (paper == "A3") base += 1.0;
-    if (color) base += 2.0;
-    if (!duplex) base += 0.5;
-    if (binding) base += 3.0;
-    if (stapler) base += 1.0;
+      final added = <_PickedFile>[];
+      for (final f in res.files) {
+        if (f.bytes == null) continue;
+        final ext = (f.extension ?? "").toLowerCase();
+        added.add(_PickedFile(bytes: f.bytes!, name: f.name, ext: ext));
+      }
 
-    // pages factor (rough)
-    double pageFactor = 1.0;
-    if (pages.trim().toLowerCase() != "all") pageFactor = 0.8;
+      if (added.isEmpty) {
+        _toast("Tak dapat baca file. Cuba pilih semula.");
+        return;
+      }
 
-    final total = (base * copies) * pageFactor;
-    return total.clamp(0, 999);
+      setState(() => files.addAll(added));
+    } catch (_) {
+      _toast("Pick file failed.");
+    }
   }
 
+  void _removeFile(int i) => setState(() => files.removeAt(i));
+  void _clearFiles() => setState(() => files.clear());
+
+  // ---------- VALIDATION ----------
+  bool get _canSubmit {
+    if (!hasFiles) return false;
+    if (locationCtrl.text.trim().isEmpty) return false;
+    return true;
+  }
+
+  // ---------- REQUEST MESSAGE ----------
+  String _buildRequestMessage() {
+    final loc = locationCtrl.text.trim();
+    final notes = notesCtrl.text.trim();
+
+    final fileLines = files
+        .map((f) => "- ${f.name} (${_prettyBytes(f.bytes.length)}) • ${f.ext.toUpperCase()}")
+        .join("\n");
+
+    return """
+PRINT REQUEST (Uniserve)
+
+Location:
+$loc
+
+Files:
+$fileLines
+
+Options:
+- Paper: $paper
+- Copies: $copies
+- Color: ${isColor ? "Yes" : "No"}
+- Double-sided: ${isDoubleSided ? "Yes" : "No"}
+- Quality: $quality
+
+Notes:
+${notes.isEmpty ? "-" : notes}
+
+(Please reply with your price offer & ETA. I can negotiate.)
+""".trim();
+  }
+
+  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: _fg,
+        title: const Text("Request Print"),
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (_, __) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _hero(),
+                  const SizedBox(height: 14),
 
-    return PremiumScaffold(
-      title: "Printing",
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: IconSquareButton(
-            icon: Icons.history_rounded,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PrintQueueScreen()),
-            ),
-          ),
-        )
-      ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+                  _sectionTitle("1) Pick files + fill location"),
+                  const SizedBox(height: 10),
+                  _filesCard(),
+                  const SizedBox(height: 12),
+                  _locationCard(),
+
+                  const SizedBox(height: 18),
+                  _sectionTitle("2) Options"),
+                  const SizedBox(height: 10),
+                  _optionsCard(),
+
+                  const SizedBox(height: 18),
+                  _sectionTitle("3) Notes (optional)"),
+                  const SizedBox(height: 10),
+                  _notesCard(),
+
+                  const SizedBox(height: 18),
+                  _tipBox(),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      bottomNavigationBar: _bottomBar(),
+    );
+  }
+
+  Widget _hero() {
+    return _glass(
+      padding: const EdgeInsets.all(14),
+      borderColor: _primaryBlue.withAlpha(120),
+      child: Row(
         children: [
-          GlassCard(
-            borderColor: UColors.cyan.withAlpha(120),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0F172A), Color(0xFF020617)],
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: _primaryBlue.withAlpha(18),
+              border: Border.all(color: _border),
+            ),
+            child: const Icon(Icons.print_rounded, color: _primaryBlue, size: 26),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                "Print service ",
+                style: TextStyle(color: _fg, fontWeight: FontWeight.w900, fontSize: 15),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Upload files • Letak lokasi • Driver/runner akan offer harga & ETA",
+                style: TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+            ]),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String t) {
+    return Text(
+      t,
+      style: TextStyle(
+        color: _primaryBlue,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.4,
+        fontSize: 12,
+      ),
+    );
+  }
+
+  Widget _filesCard() {
+    return _glass(
+      child: Column(
+        children: [
+          // header row
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _border),
             ),
             child: Row(
               children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    color: UColors.cyan.withAlpha(18),
-                    border: Border.all(color: Colors.white.withAlpha(18)),
-                  ),
-                  child: const Icon(Icons.print_rounded, color: UColors.cyan, size: 26),
-                ),
-                const SizedBox(width: 12),
+                Icon(Icons.folder_open_rounded, color: _muted),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      "Upload & Print",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        shadows: [Shadow(color: UColors.cyan.withAlpha(70), blurRadius: 20)],
+                  child: Text(
+                    hasFiles ? "${files.length} file(s) selected" : "No file selected",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: hasFiles ? _fg : _muted, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                if (hasFiles)
+                  InkWell(
+                    onTap: _clearFiles,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: _border),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: Icon(Icons.delete_outline_rounded, color: _muted, size: 18),
                     ),
-                    const SizedBox(height: 4),
-                    Text("Pick file → set options → submit",
-                        style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
-                  ]),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          _step("1. UPLOAD FILE"),
-          const SizedBox(height: 10),
-          _fileBox(muted),
-
-          const SizedBox(height: 16),
-          _step("2. PRINT OPTIONS"),
-          const SizedBox(height: 10),
-          _optionsCard(muted),
-
-          const SizedBox(height: 16),
-          _step("3. NOTES"),
-          const SizedBox(height: 10),
-          PremiumField(
-            label: "Remarks",
-            hint: "e.g. print before 5pm / call me when ready",
-            controller: noteCtrl,
-            icon: Icons.sticky_note_2_rounded,
-            maxLines: 3,
-          ),
-
-          const SizedBox(height: 130),
-        ],
-      ),
-      bottomBar: _bottomBar(muted),
-    );
-  }
-
-  Widget _step(String t) {
-    return const Text(
-      " ",
-      style: TextStyle(fontSize: 0),
-    );
-  }
-
-  Widget _fileBox(Color muted) {
-    final hasFile = pickedFile != null;
-
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      borderColor: hasFile ? UColors.success.withAlpha(120) : Colors.white.withAlpha(25),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text("FILE",
-                    style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-                const SizedBox(height: 8),
-                Text(
-                  hasFile ? fileName : "No file selected",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  hasFile ? _prettyBytes(fileBytes) : "Accepted: PDF, DOCX, PNG, JPG",
-                  style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12),
-                ),
-              ]),
-            ),
-            const SizedBox(width: 10),
-            PrimaryButton(
-              text: hasFile ? "Change" : "Choose",
-              icon: Icons.upload_file_rounded,
-              bg: UColors.cyan,
-              fg: Colors.black,
-              onTap: pickFile,
-            ),
-          ]),
-          if (hasFile) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: PrimaryButton(
-                    text: "Remove File",
-                    icon: Icons.delete_rounded,
-                    bg: UColors.danger,
-                    fg: Colors.black,
-                    onTap: () => setState(() {
-                      pickedFile = null;
-                      fileName = "";
-                      fileBytes = 0;
-                    }),
                   ),
-                ),
               ],
             ),
-          ]
+          ),
+
+          if (hasFiles) ...[
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 190),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: files.length,
+                separatorBuilder: (_, __) => Divider(color: _border),
+                itemBuilder: (_, i) {
+                  final f = files[i];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 6),
+                    leading: Icon(Icons.insert_drive_file_rounded, color: _muted),
+                    title: Text(
+                      f.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: _fg, fontWeight: FontWeight.w900),
+                    ),
+                    subtitle: Text(
+                      "${f.ext.toUpperCase()} • ${_prettyBytes(f.bytes.length)}",
+                      style: TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: 11),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      color: const Color(0xFFEF4444),
+                      onPressed: () => _removeFile(i),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _pickFiles,
+              icon: const Icon(Icons.upload_file_rounded),
+              label: Text(hasFiles ? "ADD MORE FILES" : "PICK FILES"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B), // gold-ish
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _optionsCard(Color muted) {
-    return GlassCard(
+  Widget _locationCard() {
+    return _glass(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("BASIC",
-              style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-          const SizedBox(height: 10),
+          Text("Location", style: TextStyle(color: _fg, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          _textField(
+            controller: locationCtrl,
+            hint: "e.g. Zubair C-2-10 / SAC / KICT Lobby",
+            icon: Icons.location_on_rounded,
+          ),
+        ],
+      ),
+    );
+  }
 
-          // paper + copies
+  Widget _optionsCard() {
+    return _glass(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _dropdown("Paper", paper, const ["A4", "A3"], (v) => setState(() => paper = v))),
+              const SizedBox(width: 10),
+              Expanded(child: _dropdown("Quality", quality, const ["Standard", "High"], (v) => setState(() => quality = v))),
+            ],
+          ),
+          const SizedBox(height: 12),
+
           Row(
             children: [
               Expanded(
-                child: _dropdown<String>(
-                  label: "Paper",
-                  value: paper,
-                  items: const ["A4", "A3"],
-                  onChanged: (v) => setState(() => paper = v),
+                child: _toggle(
+                  title: "Color Print",
+                  value: isColor,
+                  onChanged: (v) => setState(() => isColor = v),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _counter(
-                  label: "Copies",
-                  value: copies,
-                  onMinus: () => setState(() => copies = (copies - 1).clamp(1, 99)),
-                  onPlus: () => setState(() => copies = (copies + 1).clamp(1, 99)),
+                child: _toggle(
+                  title: "Double-sided",
+                  value: isDoubleSided,
+                  onChanged: (v) => setState(() => isDoubleSided = v),
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 12),
 
-          // pages
-          _inputChip(
-            title: "Pages",
-            subtitle: "Use 'All' or range (e.g. 1-3,5)",
-            value: pages,
-            onTap: () async {
-              final v = await _askText("Pages", pages);
-              if (v == null) return;
-              setState(() => pages = v.trim().isEmpty ? "All" : v.trim());
-            },
-          ),
-
-          const SizedBox(height: 14),
-          const Text("STYLE",
-              style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-          const SizedBox(height: 10),
-
-          _switchRow("Color Print", "B/W (default) vs Color (+RM2)", color, (v) => setState(() => color = v), UColors.pink),
-          const SizedBox(height: 10),
-          _switchRow("Duplex", "Double-sided (on) / Single-sided (+RM0.5)", duplex, (v) => setState(() => duplex = v), UColors.info),
-
-          const SizedBox(height: 14),
-          const Text("FINISHING",
-              style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-          const SizedBox(height: 10),
-
-          _switchRow("Binding", "Add binding (+RM3)", binding, (v) => setState(() => binding = v), UColors.teal),
-          const SizedBox(height: 10),
-          _switchRow("Stapler", "Staple pages (+RM1)", stapler, (v) => setState(() => stapler = v), UColors.warning),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomBar(Color muted) {
-    final canSubmit = pickedFile != null;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text("Estimated Price", style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
-            Text(canSubmit ? "RM ${price.toStringAsFixed(0)}" : "RM —",
-                style: TextStyle(
-                  color: UColors.gold,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  shadows: [Shadow(color: UColors.gold.withAlpha(70), blurRadius: 20)],
-                )),
-          ]),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(
-              text: "Submit Print Order",
-              icon: Icons.send_rounded,
-              bg: canSubmit ? UColors.gold : Colors.white.withAlpha(18),
-              fg: Colors.black,
-              onTap: canSubmit ? submitOrder : () => _toast("Choose a file first."),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // -------- actions ----------
-  Future<void> pickFile() async {
-    try {
-      final res = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        withData: false,
-        type: FileType.custom,
-        allowedExtensions: const ["pdf", "doc", "docx", "png", "jpg", "jpeg"],
-      );
-      if (res == null || res.files.isEmpty) return;
-
-      final p = res.files.single.path;
-      if (p == null) return;
-
-      final f = File(p);
-      final stat = await f.stat();
-
-      setState(() {
-        pickedFile = f;
-        fileName = res.files.single.name;
-        fileBytes = stat.size;
-      });
-
-      _toast("File selected ✅");
-    } catch (e) {
-      _toast("Failed to pick file.");
-    }
-  }
-
-  Future<void> submitOrder() async {
-    final f = pickedFile;
-    if (f == null) return;
-
-    // copy into app storage = "uploaded into app"
-    final dir = await getApplicationDocumentsDirectory();
-    final uploadDir = Directory("${dir.path}/prints");
-    if (!await uploadDir.exists()) {
-      await uploadDir.create(recursive: true);
-    }
-
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final newPath = "${uploadDir.path}/$id-$fileName";
-    final saved = await f.copy(newPath);
-
-    final order = PrintOrder(
-      id: id,
-      createdAt: DateTime.now(),
-      fileName: fileName,
-      filePath: saved.path,
-      fileBytes: fileBytes,
-      paper: paper,
-      color: color,
-      duplex: duplex,
-      copies: copies,
-      pages: pages,
-      binding: binding,
-      stapler: stapler,
-      note: noteCtrl.text.trim(),
-      price: price,
-    );
-
-    PrintStore.I.add(order);
-
-    if (!mounted) return;
-    _toast("Print order submitted ✅");
-    Navigator.push(context, MaterialPageRoute(builder: (_) => PrintQueueScreen(openOrderId: id)));
-  }
-
-  // -------- UI helpers ----------
-  Widget _switchRow(String title, String sub, bool value, ValueChanged<bool> onChanged, Color c) {
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      borderColor: c.withAlpha(120),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text(sub, style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w700, fontSize: 11)),
-            ]),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: c,
-            inactiveThumbColor: Colors.white.withAlpha(120),
-            inactiveTrackColor: Colors.white.withAlpha(18),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _counter({
-    required String label,
-    required int value,
-    required VoidCallback onMinus,
-    required VoidCallback onPlus,
-  }) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label.toUpperCase(),
-              style: const TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
-          const SizedBox(height: 8),
           Row(
             children: [
-              GestureDetector(
-                onTap: onMinus,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withAlpha(10),
-                    border: Border.all(color: Colors.white.withAlpha(18)),
-                  ),
-                  child: const Center(child: Text("-", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
-                ),
-              ),
               Expanded(
-                child: Center(
-                  child: Text("$value",
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-                ),
+                child: Text("Copies", style: TextStyle(color: _fg, fontWeight: FontWeight.w900)),
               ),
-              GestureDetector(
-                onTap: onPlus,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: UColors.gold,
-                  ),
-                  child: const Center(child: Text("+", style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900))),
-                ),
-              ),
+              _miniBtn("-", () => setState(() => copies = (copies - 1).clamp(1, 99))),
+              const SizedBox(width: 10),
+              Text("$copies", style: TextStyle(color: _fg, fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(width: 10),
+              _miniBtn("+", () => setState(() => copies = (copies + 1).clamp(1, 99)), primary: true),
             ],
           ),
         ],
@@ -465,201 +383,307 @@ class _PrintScreenState extends State<PrintScreen> {
     );
   }
 
-  Widget _dropdown<T>({
-    required String label,
-    required T value,
-    required List<T> items,
-    required ValueChanged<T> onChanged,
-  }) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
+  Widget _notesCard() {
+    return _glass(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(),
-              style: const TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11)),
+          Text("Notes", style: TextStyle(color: _fg, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
-          DropdownButtonFormField<T>(
-            initialValue: value,
-            dropdownColor: const Color(0xFF0F172A),
-            iconEnabledColor: Colors.white,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.white.withAlpha(10),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withAlpha(18)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withAlpha(18)),
-              ),
-            ),
-            items: items
-                .map((e) => DropdownMenuItem<T>(
-                      value: e,
-                      child: Text("$e", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                    ))
-                .toList(),
-            onChanged: (v) {
-              if (v == null) return;
-              onChanged(v);
-            },
+          _textField(
+            controller: notesCtrl,
+            hint: "e.g. urgent, stapler, black & white only, etc.",
+            icon: Icons.sticky_note_2_rounded,
+            maxLines: 4,
           ),
         ],
       ),
     );
   }
 
-  Widget _inputChip({
-    required String title,
-    required String subtitle,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: GlassCard(
-        padding: const EdgeInsets.all(14),
-        borderColor: UColors.purple.withAlpha(120),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w700, fontSize: 11)),
-              ]),
+  Widget _tipBox() {
+    return _glass(
+      padding: const EdgeInsets.all(14),
+      borderColor: _primaryBlue.withAlpha(120),
+      child: Row(
+        children: [
+          const Icon(Icons.handshake_rounded, color: _primaryBlue),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Lepas request, runner/driver akan reply harga offer. Kau boleh nego sampai setuju.",
+              style: TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: 12),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(10),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withAlpha(18)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bottomBar() {
+    final can = _canSubmit;
+    final totalFiles = files.length;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        child: _glass(
+          padding: const EdgeInsets.all(14),
+          borderColor: _primaryBlue.withAlpha(120),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min, // prevent overflow
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Ready to request",
+                      style: TextStyle(color: _muted, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "$totalFiles file(s) • ${copies}x • $paper",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: _fg, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
               ),
-              child: Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-            )
-          ],
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: can ? _requestPrint : null,
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text("REQUEST PRINT"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: can ? _primaryBlue : (_isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(10)),
+                    foregroundColor: can ? Colors.white : _muted,
+                    disabledBackgroundColor: (_isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(10)),
+                    disabledForegroundColor: _muted,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Future<String?> _askText(String title, String initial) async {
-    final ctrl = TextEditingController(text: initial);
-    return showDialog<String>(
-      context: context,
-      builder: (_) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0F172A),
-          title: Text(title, style: const TextStyle(color: Colors.white)),
-          content: TextField(
-            controller: ctrl,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: "e.g. All or 1-3,5",
-              hintStyle: TextStyle(color: UColors.darkMuted),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-            TextButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text("Save")),
-          ],
-        );
-      },
+  // ---------- COMPONENTS ----------
+  Widget _glass({
+    Widget? child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(12),
+    Color? borderColor,
+  }) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor ?? _border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(_isDark ? 80 : 25),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          )
+        ],
+      ),
+      child: child,
     );
   }
 
-  String _prettyBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
-    return "${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB";
+  Widget _textField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+  }) {
+    final inputBg = _isDark ? const Color(0xFF0B1220) : const Color(0xFFF1F5F9);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: inputBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(icon, color: _muted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              maxLines: maxLines,
+              style: TextStyle(color: _fg, fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(color: _muted),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
   }
 
-  void _toast(String msg) {
+  Widget _dropdown(String label, String value, List<String> items, ValueChanged<String> onChanged) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: _isDark ? const Color(0xFF0B1220) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: TextStyle(color: _muted, fontWeight: FontWeight.w800, fontSize: 11)),
+              const SizedBox(height: 4),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: value,
+                  isDense: true,
+                  dropdownColor: _card,
+                  iconEnabledColor: _muted,
+                  style: TextStyle(color: _fg, fontWeight: FontWeight.w900),
+                  items: items
+                      .map((e) => DropdownMenuItem<String>(
+                            value: e,
+                            child: Text(e),
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v == null) return;
+                    onChanged(v);
+                  },
+                ),
+              ),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toggle({required String title, required bool value, required ValueChanged<bool> onChanged}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: _isDark ? const Color(0xFF0B1220) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(title, style: TextStyle(color: _fg, fontWeight: FontWeight.w900))),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: _primaryBlue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniBtn(String t, VoidCallback onTap, {bool primary = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: primary ? _primaryBlue : (_isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(6)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: primary ? _primaryBlue : _border),
+        ),
+        child: Center(
+          child: Text(
+            t,
+            style: TextStyle(
+              color: primary ? Colors.white : _fg,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------- ACTION ----------
+  void _requestPrint() {
+    if (!_canSubmit) {
+      _toast("Pick files & fill location dulu.");
+      return;
+    }
+
+    final msg = _buildRequestMessage();
+
+    // For now: copy to clipboard + show dialog (chrome-friendly)
+    // (Tak pakai google map / whatsapp auto launch)
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _card,
+        title: Text("Request Message", style: TextStyle(color: _fg, fontWeight: FontWeight.w900)),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            msg,
+            style: TextStyle(color: _fg, fontWeight: FontWeight.w600, fontSize: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _toast("Copy the text & send to runner.");
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+
+    _toast("Request ready. Copy text & send ✅");
+  }
+
+  void _toast(String s) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(s),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? UColors.darkGlass : UColors.lightGlass,
       ),
     );
   }
 }
 
-class PrintQueueScreen extends StatelessWidget {
-  final String? openOrderId;
-  const PrintQueueScreen({super.key, this.openOrderId});
+// ---------- MODEL ----------
+class _PickedFile {
+  final Uint8List bytes;
+  final String name;
+  final String ext;
+  _PickedFile({required this.bytes, required this.name, required this.ext});
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return PremiumScaffold(
-      title: "Print Queue",
-      body: AnimatedBuilder(
-        animation: PrintStore.I,
-        builder: (_, _) {
-          final list = PrintStore.I.orders;
-
-          if (list.isEmpty) {
-            return GlassCard(
-              child: Column(
-                children: const [
-                  Icon(Icons.inbox_rounded, color: UColors.darkMuted, size: 34),
-                  SizedBox(height: 10),
-                  Text("No print orders yet.", style: TextStyle(color: UColors.darkMuted, fontWeight: FontWeight.w700)),
-                ],
-              ),
-            );
-          }
-
-          return Column(
-            children: list.map((o) {
-              final isNew = (openOrderId != null && o.id == openOrderId);
-              final status = printStatusLabel(o.status);
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: GlassCard(
-                  borderColor: isNew ? UColors.gold.withAlpha(140) : null,
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: UColors.cyan.withAlpha(20),
-                          border: Border.all(color: UColors.cyan.withAlpha(120)),
-                        ),
-                        child: const Icon(Icons.print_rounded, color: UColors.cyan),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(o.fileName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                          const SizedBox(height: 3),
-                          Text("$status • RM ${o.price.toStringAsFixed(0)} • ${o.copies}x • ${o.paper}",
-                              style: TextStyle(color: Colors.white.withAlpha(170), fontWeight: FontWeight.w700, fontSize: 12)),
-                        ]),
-                      ),
-                      if (o.status != PrintStatus.ready && o.status != PrintStatus.cancelled)
-                        IconSquareButton(
-                          icon: Icons.close_rounded,
-                          onTap: () => PrintStore.I.cancel(o.id),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          );
-        },
-      ),
-    );
-  }
+// ---------- HELPERS ----------
+String _prettyBytes(int bytes) {
+  if (bytes < 1024) return "$bytes B";
+  final kb = bytes / 1024;
+  if (kb < 1024) return "${kb.toStringAsFixed(1)} KB";
+  final mb = kb / 1024;
+  return "${mb.toStringAsFixed(1)} MB";
 }

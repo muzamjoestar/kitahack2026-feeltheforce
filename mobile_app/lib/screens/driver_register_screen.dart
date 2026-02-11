@@ -1,6 +1,6 @@
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' ;
 import 'package:flutter/services.dart';
 
 import '../theme/colors.dart';
@@ -74,6 +74,7 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
       body: SafeArea(
         child: Stack(
           children: [
+            _backgroundDecor(),
             // scroll content
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 160),
@@ -129,6 +130,59 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
     );
   }
 
+
+  Widget _backgroundDecor() {
+    // simple soft blobs so light mode looks more premium
+    final topColor = _isDark ? const Color(0xFF1D4ED8) : const Color(0xFF93C5FD);
+    final bottomColor = _isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A);
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            // top-right blob
+            Positioned(
+              top: -120,
+              right: -120,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      topColor.withAlpha(_isDark ? 70 : 90),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // bottom-left blob
+            Positioned(
+              bottom: -140,
+              left: -140,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      bottomColor.withAlpha(_isDark ? 55 : 80),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   Widget _topBar() {
     final bg = _isDark ? UColors.darkGlass : UColors.lightGlass;
     final border = _isDark ? UColors.darkBorder : UColors.lightBorder;
@@ -173,17 +227,26 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: border),
-        gradient: const RadialGradient(
-          center: Alignment(0.85, -0.85),
-          radius: 1.2,
-          colors: [
-            Color(0xFF1E293B),
-            Color(0xFF0F172A),
-          ],
-        ),
+        gradient: _isDark
+          ? const RadialGradient(
+              center: Alignment(0.85, -0.85),
+              radius: 1.2,
+              colors: [
+                Color(0xFF1E293B),
+                Color(0xFF0F172A),
+              ],
+            )
+          : const RadialGradient(
+              center: Alignment(0.8, -0.9),
+              radius: 1.25,
+              colors: [
+                Color(0xFFEFF6FF),
+                Color(0xFFFFFFFF),
+              ],
+            ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(90),
+            color: _isDark ? Colors.black.withAlpha(90) : Colors.black.withAlpha(18),
             blurRadius: 40,
             offset: const Offset(0, 18),
           )
@@ -210,13 +273,13 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
                 "Drive & Earn",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _isDark ? Colors.white : const Color(0xFF0B1220),
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.3,
-                  shadows: [
-                    Shadow(color: Colors.black.withAlpha(120), blurRadius: 20),
-                  ],
+                  shadows: _isDark
+                      ? [Shadow(color: Colors.black.withAlpha(120), blurRadius: 20)]
+                      : null,
                 ),
               ),
               const SizedBox(height: 6),
@@ -224,7 +287,7 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
                 "Join the elite transport team.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: const Color(0xFF94A3B8),
+                  color: _isDark ? const Color(0xFF94A3B8) : Colors.black.withAlpha(140),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -238,8 +301,8 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
   Widget _sectionTitle(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        color: UColors.gold,
+      style: TextStyle(
+        color: _isDark ? UColors.gold : const Color(0xFF2563EB),
         fontWeight: FontWeight.w900,
         letterSpacing: 1.2,
         fontSize: 11,
@@ -306,6 +369,7 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
     );
   }
 
+  
   Widget _vehCard({
     required bool active,
     required IconData icon,
@@ -313,23 +377,34 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
     required String desc,
     required VoidCallback onTap,
   }) {
-    final baseBg = _isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(5);
+    // requested: when selecting "Car", highlight it in blue
+    final accent = (title.toLowerCase() == "car") ? const Color(0xFF2563EB) : UColors.gold;
+
+    final baseBg = _isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(4);
     final bg = active
         ? LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              UColors.gold.withAlpha(40),
-              UColors.gold.withAlpha(12),
+              accent.withAlpha(_isDark ? 55 : 45),
+              accent.withAlpha(_isDark ? 18 : 12),
             ],
           )
         : null;
 
     final border = active
-        ? UColors.gold.withAlpha(220)
+        ? accent.withAlpha(220)
         : (_isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12));
 
-    final iconColor = active ? UColors.gold : (_isDark ? const Color(0xFF64748B) : const Color(0xFF64748B));
+    final iconColor = active ? accent : _muted;
+
+    final titleColor = active
+        ? (_isDark ? Colors.white : const Color(0xFF0B1220))
+        : _textMain;
+
+    final descColor = active
+        ? (_isDark ? Colors.white.withAlpha(180) : Colors.black.withAlpha(120))
+        : _muted;
 
     return GestureDetector(
       onTap: onTap,
@@ -344,7 +419,7 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: UColors.gold.withAlpha(40),
+                    color: accent.withAlpha(_isDark ? 45 : 28),
                     blurRadius: 22,
                     offset: const Offset(0, 10),
                   )
@@ -359,16 +434,16 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
               child: AnimatedOpacity(
                 opacity: active ? 1 : 0,
                 duration: const Duration(milliseconds: 160),
-                child: const Icon(Icons.check_circle_rounded, color: UColors.gold, size: 18),
+                child: Icon(Icons.check_circle_rounded, color: accent, size: 18),
               ),
             ),
             Column(
               children: [
                 Icon(icon, color: iconColor, size: 34),
                 const SizedBox(height: 10),
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                Text(title, style: TextStyle(color: titleColor, fontWeight: FontWeight.w800, fontSize: 14)),
                 const SizedBox(height: 2),
-                Text(desc, style: const TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w600, fontSize: 11)),
+                Text(desc, style: TextStyle(color: descColor, fontWeight: FontWeight.w700, fontSize: 11)),
               ],
             ),
           ],
@@ -376,6 +451,7 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
       ),
     );
   }
+
 
   Widget _muslimahBox() {
     final border = const Color(0xFFEC4899).withAlpha(90);
@@ -402,10 +478,13 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text("Muslimah Driver", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                SizedBox(height: 2),
-                Text("Only accept female passengers", style: TextStyle(color: Color(0xFFEC4899), fontWeight: FontWeight.w600, fontSize: 12)),
+              children: [
+                Text("Muslimah Driver", style: TextStyle(color: _textMain, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                const Text(
+                  "Only accept female passengers",
+                  style: TextStyle(color: Color(0xFFEC4899), fontWeight: FontWeight.w600, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -415,14 +494,14 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
             activeThumbColor: const Color(0xFFEC4899),
             activeTrackColor: const Color(0xFFEC4899).withAlpha(80),
             inactiveThumbColor: Colors.white,
-            inactiveTrackColor: const Color(0xFF334155),
+            inactiveTrackColor: _isDark ? const Color(0xFF334155) : Colors.black.withAlpha(14),
           ),
         ],
       ),
     );
   }
 
-  Widget _docGrid() {
+Widget _docGrid() {
     return Column(
       children: [
         Row(
@@ -579,14 +658,16 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
           Row(
             children: [
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-                  Text("Registration", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)),
-                  SizedBox(height: 2),
-                  Text("OPEN & FREE", style: TextStyle(color: UColors.success, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                ]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Registration", style: TextStyle(color: _muted, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    const Text("OPEN & FREE", style: TextStyle(color: UColors.success, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                  ],
+                ),
               ),
-              const Text("RM 0",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26, height: 1)),
+              Text("RM 0", style: TextStyle(color: _textMain, fontWeight: FontWeight.w900, fontSize: 26, height: 1)),
             ],
           ),
           const SizedBox(height: 12),
@@ -760,3 +841,4 @@ class _PickedDoc {
     required this.size,
   });
 }
+
