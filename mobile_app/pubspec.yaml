@@ -44,6 +44,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   url_launcher: ^6.3.2
   flutter_animate: ^4.5.2
+  app_links: ^7.0.0
 
 dev_dependencies:
   flutter_test:
