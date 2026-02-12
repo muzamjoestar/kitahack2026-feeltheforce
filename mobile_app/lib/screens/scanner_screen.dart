@@ -39,6 +39,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
   void initState() {
     super.initState();
     // 1. Setup Camera (Use the back camera, high resolution)
+    if (widget.cameras.isEmpty) {
+      debugPrint("No cameras found");
+      return;
+    }
+
     _controller = CameraController(
       widget.cameras.first, // Usually the back camera
       ResolutionPreset.high,
@@ -49,7 +54,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (widget.cameras.isNotEmpty) {
+      _controller.dispose();
+    }
     _nameCtrl.dispose();
     _matricCtrl.dispose();
     _kulliyyahCtrl.dispose();
@@ -57,7 +64,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   Future<void> _toggleFlash() async {
-    if (!_controller.value.isInitialized) return;
+    if (widget.cameras.isEmpty || !_controller.value.isInitialized) return;
     try {
       setState(() => _flashOn = !_flashOn);
       await _controller
@@ -125,7 +132,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget _buildCamera() {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: FutureBuilder<void>(
+      // FIX: Handle case where cameras are empty
+      body: widget.cameras.isEmpty 
+          ? const Center(child: Text("No Camera Found", style: TextStyle(color: Colors.white)))
+          : FutureBuilder<void>(
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
@@ -266,11 +276,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 // Layer: Instructions Screen (Glassmorphism)
                 if (_showInstructions)
                   Positioned.fill(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Container(
-                        color: Colors.black.withOpacity(0.6),
-                        child: Column(
+                    // FIX: Removed BackdropFilter (blur) to prevent UI lag/freeze
+                    child: Container(
+                      color: Colors.black.withOpacity(0.85),
+                      child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
@@ -353,7 +362,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
                             ),
                           ],
                         ),
-                      ),
                     ),
                   ),
               ],
@@ -375,12 +383,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
           // Background: Blurred captured image
           if (_capturedImage != null)
             Positioned.fill(
-              child: Image.file(File(_capturedImage!.path), fit: BoxFit.cover)
-                  .animate()
-                  .blur(
-                      begin: const Offset(0, 0),
-                      end: const Offset(20, 20),
-                      duration: 800.ms),
+              // FIX: Removed .blur() animation and added cacheWidth for performance
+              child: Image.file(File(_capturedImage!.path), fit: BoxFit.cover, cacheWidth: 600)
+                  .animate().fade(duration: 500.ms),
             ),
 
           // Dark Overlay

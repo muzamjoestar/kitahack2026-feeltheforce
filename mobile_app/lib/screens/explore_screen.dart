@@ -32,7 +32,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 0.6,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=1200",
+          "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400",
       routeName: "/runner",
     ),
     _Place(
@@ -43,7 +43,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 0.9,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200",
+          "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400",
       routeName: "/parcel",
     ),
     _Place(
@@ -54,7 +54,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 1.2,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=1200",
+          "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=400",
       routeName: "/print",
     ),
     _Place(
@@ -65,7 +65,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 1.0,
       openNow: false,
       imageUrl:
-          "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=1200",
+          "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=400",
       routeName: "/runner",
     ),
     _Place(
@@ -76,7 +76,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 0.8,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200",
+          "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400",
       routeName: "/barber",
     ),
     _Place(
@@ -87,7 +87,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 1.6,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=1200",
+          "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400",
       routeName: "/runner",
     ),
     _Place(
@@ -98,7 +98,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 1.9,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1580915411954-282cb1da5d35?w=1200",
+          "https://images.unsplash.com/photo-1580915411954-282cb1da5d35?w=400",
       routeName: "/parcel",
     ),
     _Place(
@@ -109,7 +109,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 2.2,
       openNow: false,
       imageUrl:
-          "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200",
+          "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400",
       routeName: "/print",
     ),
     _Place(
@@ -120,7 +120,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       distanceKm: 1.1,
       openNow: true,
       imageUrl:
-          "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=1200",
+          "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=400",
       routeName: "/assignment",
     ),
   ];
@@ -160,36 +160,39 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
         )
       ],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Discover campus gems.",
-              style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Discover campus gems.",
+                style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 14),
 
-          _searchBar(textMain, muted),
-          const SizedBox(height: 14),
+            _searchBar(textMain, muted),
+            const SizedBox(height: 14),
 
-          _promoBanner(),
-          const SizedBox(height: 16),
+            _promoBanner(),
+            const SizedBox(height: 16),
 
-          Text("CATEGORIES",
-              style: const TextStyle(
-                color: UColors.gold,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
-                fontSize: 11,
-              )),
-          const SizedBox(height: 10),
-          _categoryChips(),
-          const SizedBox(height: 14),
+            Text("CATEGORIES",
+                style: const TextStyle(
+                  color: UColors.gold,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                  fontSize: 11,
+                )),
+            const SizedBox(height: 10),
+            _categoryChips(),
+            const SizedBox(height: 14),
 
-          _resultHeader(muted),
-          const SizedBox(height: 10),
+            _resultHeader(muted),
+            const SizedBox(height: 10),
 
-          _grid(),
-          const SizedBox(height: 10),
-        ],
+            _grid(),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
     );
   }
@@ -199,10 +202,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final border = isDark ? UColors.darkBorder : UColors.lightBorder;
     final bg = isDark ? const Color(0xFF0F172A) : UColors.lightInput;
 
-    return GlassCard(
-      padding: const EdgeInsets.all(0),
-      radius: BorderRadius.circular(18),
-      borderColor: UColors.gold.withAlpha(70),
+    // FIX: Replaced GlassCard with Container to improve performance
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: UColors.gold.withAlpha(70)),
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -250,9 +255,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _promoBanner() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+    return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -267,7 +270,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           boxShadow: [
             BoxShadow(
               color: UColors.gold.withAlpha(80),
-              blurRadius: 30,
+              blurRadius: 10, // Reduced blur for performance
               offset: const Offset(0, 16),
             )
           ],
@@ -325,8 +328,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _categoryChips() {
@@ -401,7 +403,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final list = filtered;
 
     if (list.isEmpty) {
-      return GlassCard(
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
         child: Column(
           children: const [
             Icon(Icons.search_off_rounded, color: UColors.darkMuted, size: 34),
@@ -433,10 +441,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return GestureDetector(
       onTap: () => _go(p.routeName),
-      child: GlassCard(
-        padding: const EdgeInsets.all(0),
-        radius: BorderRadius.circular(18),
-        borderColor: Colors.white.withAlpha(16),
+      // FIX: Replaced GlassCard with Container to prevent "Not Responding" due to excessive BackdropFilters
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B).withOpacity(0.9) : Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withAlpha(16)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -447,7 +458,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(p.imageUrl, fit: BoxFit.cover),
+                    // FIX: Added cacheWidth to reduce memory usage and decoding time
+                    // Reduce cacheWidth even more for very low-end devices
+                    Image.network(
+                      p.imageUrl, 
+                      fit: BoxFit.cover, 
+                      cacheWidth: 400,
+                      errorBuilder: (c, e, s) => Container(color: Colors.grey[900], child: const Icon(Icons.broken_image, color: Colors.white54)),
+                    ),
                     // top overlay
                     Positioned(
                       left: 10,

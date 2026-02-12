@@ -34,14 +34,15 @@ import 'screens/scanner_screen.dart';
 import 'screens/privacy_policy_screen.dart';
 
 // FIX: Tambah 'as market' di sini untuk mengelakkan konflik nama
-import 'screens/marketplace_screen.dart' as market; 
+import 'screens/marketplace_screen.dart' as market;
 
 // 2. DEFINE THE NAVIGATOR KEY GLOBALLY
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 List<CameraDescription> cameras = [];
 
-void main() async { // 3. Make main async
+void main() async {
+  // 3. Make main async
   // CRITICAL: Required for Deep Links and async code in main
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -103,7 +104,7 @@ class _UniserveAppState extends State<UniserveApp> {
 
   void openDeepLink(Uri uri) {
     debugPrint("Navigating to: ${uri.path}");
-    
+
     // Check if navigator is mounted
     if (navigatorKey.currentState != null) {
       if (uri.path == '/verify-identity') {
@@ -114,7 +115,7 @@ class _UniserveAppState extends State<UniserveApp> {
       // Add other deep links here
     }
   }
-  
+
   void toggleTheme() {
     setState(() {
       mode = (mode == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
@@ -125,7 +126,7 @@ class _UniserveAppState extends State<UniserveApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      navigatorKey: navigatorKey, 
+      navigatorKey: navigatorKey,
       themeMode: mode,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
@@ -151,10 +152,10 @@ class _UniserveAppState extends State<UniserveApp> {
         '/print': (_) => const PrintServiceScreen(),
         '/photo': (_) => const PhotoScreen(),
         '/express': (_) => const ExpressScreen(),
-        
+
         // FIX: Panggil guna nama alias 'market'
         '/marketplace': (_) => const market.MarketplaceScreen(),
-        
+
         '/marketplace-post': (_) => const MarketplacePostScreen(),
 
         '/ai': (_) => const AiScreen(),
@@ -164,9 +165,9 @@ class _UniserveAppState extends State<UniserveApp> {
         '/explore': (_) => const ExploreScreen(),
         '/driver-register': (_) => const DriverRegisterScreen(),
         '/verify-identity': (_) => const VerifyIdentityScreen(),
-        '/express-driver': (_) => const ExpressDriverScreen(),   
+        '/express-driver': (_) => const ExpressDriverScreen(),
         '/privacy-policy': (_) => const PrivacyPolicyScreen(),
-        
+
         // Placeholder routes
         '/pc-repair': (_) => const market.MarketplaceScreen(),
         '/rental': (_) => const market.MarketplaceScreen(),
