@@ -1,6 +1,13 @@
 import 'package:camera/camera.dart';
+import 'dart:ui';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'dart:math' as math; // For the rotation animation
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../theme/colors.dart';
+import '../ui/uniserve_ui.dart';
+
+enum _ScanState { camera, processing, results }
 
 // You need to pass the list of cameras from main.dart
 class ScannerScreen extends StatefulWidget {
@@ -12,10 +19,21 @@ class ScannerScreen extends StatefulWidget {
   State<ScannerScreen> createState() => _ScannerScreenState();
 }
 
-class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProviderStateMixin {
+class _ScannerScreenState extends State<ScannerScreen> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
-  late AnimationController _animationController;
+  bool _showInstructions = true;
+  bool _flashOn = false;
+
+  // --- NEW STATE VARIABLES ---
+  _ScanState _state = _ScanState.camera;
+  XFile? _capturedImage;
+  final _nameCtrl = TextEditingController();
+  final _matricCtrl = TextEditingController();
+  final _kulliyyahCtrl = TextEditingController();
+  bool _isValid = false;
+  double _progress = 0.0;
+  bool _syncGoogle = false;
 
   @override
   void initState() {
@@ -27,19 +45,26 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
       enableAudio: false,
     );
     _initializeControllerFuture = _controller.initialize();
-
-    // 2. Setup the "Apple Intelligence" Rotation Animation
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _animationController.dispose();
+    _nameCtrl.dispose();
+    _matricCtrl.dispose();
+    _kulliyyahCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleFlash() async {
+    if (!_controller.value.isInitialized) return;
+    try {
+      setState(() => _flashOn = !_flashOn);
+      await _controller
+          .setFlashMode(_flashOn ? FlashMode.torch : FlashMode.off);
+    } catch (e) {
+      debugPrint("Flash Error: $e");
+    }
   }
 
   // 3. The Capture Function
@@ -50,20 +75,54 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
 
       if (!mounted) return;
 
-      // Navigate to the Verify Screen (Pass the image path)
-      // Make sure you have your VerifyScanScreen ready!
-      // Navigator.push(context, MaterialPageRoute(builder: (context) => VerifyScanScreen(imagePath: image.path)));
-      
-      print("Picture taken: ${image.path}");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Processing Image...")));
+      // 1. Switch to Processing State
+      setState(() {
+        _capturedImage = image;
+        _state = _ScanState.processing;
+        _progress = 0.0;
+      });
 
+      // 2. Simulate AI Analysis Progress
+      for (int i = 0; i <= 100; i += 2) {
+        await Future.delayed(const Duration(milliseconds: 40));
+        if (mounted) setState(() => _progress = i / 100);
+      }
+
+      // 3. Mock Extracted Data (Replace with real API call later)
+      _nameCtrl.text = "ALI BIN ABU";
+      _matricCtrl.text = "2115543";
+      _kulliyyahCtrl.text = "KICT";
+      _isValid = true;
+
+      // 4. Show Results
+      if (mounted) {
+        setState(() => _state = _ScanState.results);
+      }
     } catch (e) {
-      print(e);
+      debugPrint("Error: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: _getBody(),
+    );
+  }
+
+  Widget _getBody() {
+    if (_state == _ScanState.processing)
+      return KeyedSubtree(
+          key: const ValueKey("proc"), child: _buildProcessing());
+    if (_state == _ScanState.results)
+      return KeyedSubtree(key: const ValueKey("res"), child: _buildResults());
+    return KeyedSubtree(key: const ValueKey("cam"), child: _buildCamera());
+  }
+
+  Widget _buildCamera() {
     return Scaffold(
       backgroundColor: Colors.black,
       body: FutureBuilder<void>(
@@ -80,118 +139,223 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
                   child: CameraPreview(_controller),
                 ),
 
-                // Layer 2: The Dark Overlay with a "Hole"
-                ColorFiltered(
-                  colorFilter: const ColorFilter.mode(
-                    Colors.black54, 
-                    BlendMode.srcOut, // This creates the "cutout" effect
-                  ),
-                  child: Stack(
-                    children: [
-                      Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.transparent,
-                          backgroundBlendMode: BlendMode.dstOut,
-                        ), // Transparent background
-                      ),
-                      Align(
-                        alignment: Alignment.center,
-                        child: Container(
-                          height: 220,
-                          width: 350,
-                          decoration: BoxDecoration(
-                            color: Colors.black, // This part becomes transparent due to srcOut
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Layer 3: The "Apple Intelligence" Glowing Border
-                AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    return Transform.rotate(
-                      angle: _animationController.value * 2 * math.pi,
-                      child: Container(
-                        height: 230, // Slightly larger than the hole
-                        width: 360,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          gradient: const SweepGradient(
-                            colors: [
-                              Colors.cyanAccent,
-                              Colors.purpleAccent,
-                              Colors.orangeAccent,
-                              Colors.cyanAccent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-                // Layer 4: The Clean Frame (Hides the messy rotating edges)
-                Container(
-                  height: 222,
-                  width: 352,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(21),
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-
-                // Layer 5: UI Overlay (Text & Button)
-                Positioned(
-                  top: 60,
-                  child: const Text(
-                    "Scan Matric Card",
-                    style: TextStyle(
-                      color: Colors.white, 
-                      fontSize: 24, 
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                if (!_showInstructions) ...[
+                  // Layer 2: The Dark Overlay with a "Hole"
+                  ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      Colors.black87,
+                      BlendMode.srcOut, // This creates the "cutout" effect
                     ),
-                  ),
-                ),
-                Positioned(
-                  top: 100,
-                  child: const Text(
-                    "Align your card within the frame",
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ),
-
-                // The Capture Button
-                Positioned(
-                  bottom: 50,
-                  child: GestureDetector(
-                    onTap: _takePicture,
-                    child: Container(
-                      height: 80,
-                      width: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 5),
-                        color: Colors.white24,
-                      ),
-                      child: Center(
-                        child: Container(
-                          height: 60,
-                          width: 60,
+                    child: Stack(
+                      children: [
+                        Container(
                           decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
+                            color: Colors.transparent,
+                            backgroundBlendMode: BlendMode.dstOut,
+                          ), // Transparent background
+                        ),
+                        Align(
+                          alignment: Alignment.center,
+                          child: Container(
+                            height: 350,
+                            width: 220,
+                            decoration: BoxDecoration(
+                              color: Colors
+                                  .black, // This part becomes transparent due to srcOut
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Layer 3: Intuitive Guide Box (Corners)
+                  Container(
+                    height: 352,
+                    width: 222,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      // Simple faint white border for the box
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.3), width: 1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: CustomPaint(painter: _CornerPainter()),
+                  ),
+
+                  // Layer 5: UI Overlay (Text & Button)
+                  Positioned(
+                    top: 60,
+                    child: const Text(
+                      "Scan Matric Card",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 100,
+                    child: const Text(
+                      "Align your card within the frame",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ),
+
+                  // The Capture Button
+                  Positioned(
+                    bottom: 50,
+                    child: GestureDetector(
+                      onTap: _takePicture,
+                      child: Container(
+                        height: 80,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 5),
+                          color: Colors.white24,
+                        ),
+                        child: Center(
+                          child: Container(
+                            height: 60,
+                            width: 60,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
+
+                  // Back Button
+                  Positioned(
+                    top: 50,
+                    left: 20,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+
+                  // Flash Toggle Button
+                  Positioned(
+                    top: 50,
+                    right: 20,
+                    child: IconButton(
+                      onPressed: _toggleFlash,
+                      icon: Icon(
+                        _flashOn
+                            ? Icons.flash_on_rounded
+                            : Icons.flash_off_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Layer: Instructions Screen (Glassmorphism)
+                if (_showInstructions)
+                  Positioned.fill(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        color: Colors.black.withOpacity(0.6),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.credit_card_rounded,
+                                  size: 60, color: Colors.white),
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              "Verify Identity",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 40),
+                              child: Text(
+                                "Use your camera to scan your matric card. Make sure it's well-lit.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 16),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            // Privacy Disclaimer
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(
+                                  context, '/privacy-policy'),
+                              child: Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 30),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: UColors.gold.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: UColors.gold.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.privacy_tip_rounded,
+                                        color: UColors.gold, size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        "We respect your privacy. Tap to read our policy.",
+                                        style: TextStyle(
+                                            color: Colors.white.withOpacity(0.9),
+                                            fontSize: 12,
+                                            height: 1.4),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                            ElevatedButton(
+                              onPressed: () =>
+                                  setState(() => _showInstructions = false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 40, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30)),
+                              ),
+                              child: const Text("Continue",
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             );
           } else {
@@ -201,4 +365,364 @@ class _ScannerScreenState extends State<ScannerScreen> with SingleTickerProvider
       ),
     );
   }
+
+  // --- PROCESSING SCREEN (Loading Bar) ---
+  Widget _buildProcessing() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Background: Blurred captured image
+          if (_capturedImage != null)
+            Positioned.fill(
+              child: Image.file(File(_capturedImage!.path), fit: BoxFit.cover)
+                  .animate()
+                  .blur(
+                      begin: const Offset(0, 0),
+                      end: const Offset(20, 20),
+                      duration: 800.ms),
+            ),
+
+          // Dark Overlay
+          Container(color: Colors.black.withOpacity(0.7)),
+
+          // Loading Circle & Percentage
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: _progress,
+                        strokeWidth: 8,
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(UColors.gold),
+                      ),
+                      Center(
+                        child: Text("${(_progress * 100).toInt()}%",
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text("Analyzing Card...",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+
+          // Text Status
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 100),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Verifying Identity...",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text("Analyzing security features with Gemini AI",
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.7), fontSize: 14)),
+                ],
+              ).animate().fadeIn(duration: 600.ms),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // --- RESULTS SCREEN ---
+  Widget _buildResults() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: TextButton.icon(
+              onPressed: () => setState(() => _state = _ScanState.camera),
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+              label: const Text("Retake",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                side: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                backgroundColor: Colors.white.withOpacity(0.1),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: GlassCard(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+          ),
+          borderColor: Colors.white.withAlpha(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Identity Verified",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              Text("Please confirm the extracted details below.",
+                  style: TextStyle(color: Colors.white.withOpacity(0.6))),
+              const SizedBox(height: 24),
+
+              // Valid Badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _isValid
+                      ? UColors.success.withOpacity(0.15)
+                      : UColors.danger.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: _isValid ? UColors.success : UColors.danger),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                        _isValid
+                            ? Icons.verified_rounded
+                            : Icons.warning_rounded,
+                        color: _isValid ? UColors.success : UColors.danger),
+                    const SizedBox(width: 12),
+                    Text(_isValid ? "VALID MATRIC CARD" : "INVALID CARD",
+                        style: TextStyle(
+                            color: _isValid ? UColors.success : UColors.danger,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Editable Fields
+              _buildEditField("FULL NAME", _nameCtrl),
+              const SizedBox(height: 16),
+              _buildEditField("MATRIC NUMBER", _matricCtrl),
+              const SizedBox(height: 16),
+              _buildEditField("KULLIYYAH", _kulliyyahCtrl),
+
+              const SizedBox(height: 16),
+
+              // Usage Note (Moved here)
+              Text(
+                "Your matric number and password will be used to login manually.",
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.4), fontSize: 11),
+              ),
+
+              const SizedBox(height: 24),
+
+              // OR Separator
+              Row(
+                children: [
+                  Expanded(
+                      child: Divider(color: Colors.white.withOpacity(0.1))),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text("OR",
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  Expanded(
+                      child: Divider(color: Colors.white.withOpacity(0.1))),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Google Sync Option
+              GestureDetector(
+                onTap: () => setState(() => _syncGoogle = !_syncGoogle),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _syncGoogle
+                        ? UColors.gold.withOpacity(0.15)
+                        : UColors.darkInput,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _syncGoogle ? UColors.gold : UColors.darkBorder,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(FontAwesomeIcons.google,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Sync with Google",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Text("Login with Google next time",
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: _syncGoogle,
+                          onChanged: (v) => setState(() => _syncGoogle = v),
+                          activeColor: UColors.gold,
+                          activeTrackColor: UColors.gold.withOpacity(0.3),
+                          inactiveThumbColor: Colors.grey,
+                          inactiveTrackColor: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Continue Button
+              SizedBox(
+                width: double.infinity,
+                child: PrimaryButton(
+                  text: "Continue",
+                  icon: Icons.arrow_forward_rounded,
+                  bg: UColors.gold,
+                  onTap: () {
+                    // Return extracted data
+                    Navigator.of(context).pop({
+                      'name': _nameCtrl.text,
+                      'matric': _matricCtrl.text,
+                      'kulliyyah': _kulliyyahCtrl.text,
+                      'syncGoogle': _syncGoogle,
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditField(String label, TextEditingController ctrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                color: UColors.gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: UColors.darkInput,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: UColors.darkBorder),
+          ),
+          child: TextField(
+            controller: ctrl,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              hintText: "Enter $label",
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CornerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    double length = 40;
+
+    // Top Left
+    canvas.drawPath(
+        Path()
+          ..moveTo(0, length)
+          ..lineTo(0, 0)
+          ..lineTo(length, 0),
+        paint);
+
+    // Top Right
+    canvas.drawPath(
+        Path()
+          ..moveTo(size.width - length, 0)
+          ..lineTo(size.width, 0)
+          ..lineTo(size.width, length),
+        paint);
+
+    // Bottom Right
+    canvas.drawPath(
+        Path()
+          ..moveTo(size.width, size.height - length)
+          ..lineTo(size.width, size.height)
+          ..lineTo(size.width - length, size.height),
+        paint);
+
+    // Bottom Left
+    canvas.drawPath(
+        Path()
+          ..moveTo(length, size.height)
+          ..lineTo(0, size.height)
+          ..lineTo(0, size.height - length),
+        paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

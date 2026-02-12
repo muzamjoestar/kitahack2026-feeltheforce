@@ -31,6 +31,7 @@ import 'screens/express_driver_screen.dart';
 import 'screens/marketplace_post_screen.dart';
 import 'screens/verify_identity_screen.dart';
 import 'screens/scanner_screen.dart';
+import 'screens/privacy_policy_screen.dart';
 
 // FIX: Tambah 'as market' di sini untuk mengelakkan konflik nama
 import 'screens/marketplace_screen.dart' as market; 
@@ -164,6 +165,7 @@ class _UniserveAppState extends State<UniserveApp> {
         '/driver-register': (_) => const DriverRegisterScreen(),
         '/verify-identity': (_) => const VerifyIdentityScreen(),
         '/express-driver': (_) => const ExpressDriverScreen(),   
+        '/privacy-policy': (_) => const PrivacyPolicyScreen(),
         
         // Placeholder routes
         '/pc-repair': (_) => const market.MarketplaceScreen(),

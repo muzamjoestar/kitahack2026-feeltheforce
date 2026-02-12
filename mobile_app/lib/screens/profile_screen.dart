@@ -68,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       loading = false;
     });
   }
-  
+
   // --- SINGLE, CORRECT BUILD METHOD ---
   @override
   Widget build(BuildContext context) {
@@ -79,13 +79,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (loading) {
         return Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height * 0.8),
+            constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height * 0.8),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const CircularProgressIndicator(),
                 const SizedBox(height: 12),
-                Text("Loading…", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+                Text("Loading…",
+                    style:
+                        TextStyle(color: muted, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -141,7 +144,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (errorMsg != null) _notice(errorMsg!, isError: true),
           if (successMsg != null) _notice(successMsg!, isError: false),
           const SizedBox(height: 16),
-          if (mode == "login") _loginCard(textMain, muted) else _signupCard(textMain, muted),
+          if (mode == "login")
+            _loginCard(textMain, muted)
+          else
+            _signupCard(textMain, muted),
         ],
       );
     }
@@ -161,9 +167,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// UI HELPER WIDGETS
   /// ============================
 
- Widget _customHeader(_User? user) {
+  Widget _customHeader(_User? user) {
     String title = "Welcome!";
-    String subtitle = "Sign in to continue your journey.";
+    String subtitle = "Sign in to join the secure student community.";
 
     if (user != null) {
       title = "Welcome back,";
@@ -177,12 +183,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle( fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white ),
+            style: const TextStyle(
+                fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle( fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.7) ),
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.7)),
           ),
         ],
       ),
@@ -201,37 +211,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         children: [
           Container(
-            width: 64, height: 64,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: UColors.gold,
-              boxShadow: [ BoxShadow( color: UColors.gold.withAlpha(70), blurRadius: 24, offset: const Offset(0, 10),) ],
+              boxShadow: [
+                BoxShadow(
+                  color: UColors.gold.withAlpha(70),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                )
+              ],
             ),
-            child: Center(child: Text(initials, style: const TextStyle( color: Colors.black, fontWeight: FontWeight.w900, fontSize: 20, ), ),),
+            child: Center(
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(u.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                Text(u.name,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18)),
                 const SizedBox(height: 4),
-                Text(u.matric, style: TextStyle(color: Colors.white.withAlpha(190), fontWeight: FontWeight.w700)),
+                Text(u.matric,
+                    style: TextStyle(
+                        color: Colors.white.withAlpha(190),
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: UColors.success.withAlpha(30),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(color: UColors.success.withAlpha(120)),
                   ),
-                  child: const Text( "ACTIVE", style: TextStyle(color: UColors.success, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1),),
+                  child: const Text(
+                    "ACTIVE",
+                    style: TextStyle(
+                        color: UColors.success,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10,
+                        letterSpacing: 1),
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 10),
-          Icon(Icons.verified_rounded, color: UColors.gold.withAlpha(220), size: 26),
+          Icon(Icons.verified_rounded,
+              color: UColors.gold.withAlpha(220), size: 26),
         ],
       ),
     );
@@ -248,13 +290,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: _tabBtn("Login", isLogin, () => setState(() => mode = "login"))),
-          Expanded(child: _tabBtn("Sign Up", !isLogin, () => setState(() => mode = "signup"))),
+          Expanded(
+              child: _tabBtn(
+                  "Login", isLogin, () => setState(() => mode = "login"))),
+          Expanded(
+              child: _tabBtn(
+                  "Sign Up", !isLogin, () => setState(() => mode = "signup"))),
         ],
       ),
     );
   }
-  
+
   Widget _tabBtn(String text, bool active, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -277,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  
+
   Widget _notice(String msg, {required bool isError}) {
     final color = isError ? UColors.danger : UColors.success;
     return Container(
@@ -289,10 +335,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          Icon(isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: color, size: 20),
+          Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
+              color: color,
+              size: 20),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(msg, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+            child: Text(msg,
+                style: TextStyle(color: color, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -332,7 +384,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: TextButton(
               onPressed: _doForgotPassword,
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: Text("Forgot Password?", style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w700)),
+              child: Text("Forgot Password?",
+                  style: TextStyle(
+                      color: muted, fontSize: 12, fontWeight: FontWeight.w700)),
             ),
           ),
           const SizedBox(height: 8),
@@ -351,7 +405,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(child: Divider(color: muted.withOpacity(0.3))),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text("OR", style: TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.bold)),
+                child: Text("OR",
+                    style: TextStyle(
+                        color: muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold)),
               ),
               Expanded(child: Divider(color: muted.withOpacity(0.3))),
             ],
@@ -362,9 +420,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-  
+
   Widget _signupCard(Color textMain, Color muted) {
-    final check = _passwordCheck(passCtrl.text, matricCtrl.text, confirmCtrl.text);
+    final check =
+        _passwordCheck(passCtrl.text, "", confirmCtrl.text); // Matric comes later
     return GlassCard(
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -377,23 +436,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           _sectionTitle("SIGN UP"),
           const SizedBox(height: 12),
-          _field( label: "Preferred Name", controller: nameCtrl, icon: Icons.person_rounded, hint: "e.g. Ali (Displayed in app)",),
+          _field(
+            label: "Preferred Name",
+            controller: nameCtrl,
+            icon: Icons.person_rounded,
+            hint: "e.g. Ali (Displayed in app)",
+          ),
           const SizedBox(height: 12),
-          _field( label: "Matric No.", controller: matricCtrl, icon: Icons.badge_rounded, hint: "e.g. 2516647",),
-          const SizedBox(height: 12),
-          _passwordField( label: "Password", controller: passCtrl, icon: Icons.lock_rounded, hint: "Create strong password", obscure: hidePass, onToggle: () => setState(() => hidePass = !hidePass),),
+          _passwordField(
+            label: "Password",
+            controller: passCtrl,
+            icon: Icons.lock_rounded,
+            hint: "Create strong password",
+            obscure: hidePass,
+            onToggle: () => setState(() => hidePass = !hidePass),
+          ),
           const SizedBox(height: 10),
           _passwordChecklist(check, muted),
           const SizedBox(height: 12),
-          _passwordField( label: "Confirm Password", controller: confirmCtrl, icon: Icons.verified_user_rounded, hint: "Re-type password", obscure: hideConfirm, onToggle: () => setState(() => hideConfirm = !hideConfirm),),
+          _passwordField(
+            label: "Confirm Password",
+            controller: confirmCtrl,
+            icon: Icons.verified_user_rounded,
+            hint: "Re-type password",
+            obscure: hideConfirm,
+            onToggle: () => setState(() => hideConfirm = !hideConfirm),
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: PrimaryButton(
               text: "Create Account",
-              icon: Icons.person_add_alt_1_rounded,
               bg: check.allOk ? UColors.gold : UColors.darkMuted,
-              onTap: check.allOk ? _doSignup : () => _toast("Fix password checklist dulu."),
+              onTap: check.allOk
+                  ? _doSignup
+                  : () => _toast("Fix password checklist dulu."),
             ),
           ),
         ],
@@ -408,7 +485,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         width: double.infinity,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(15), 
+          color: Colors.white.withAlpha(15),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withAlpha(30)),
         ),
@@ -419,7 +496,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(width: 12),
             Text(
               "Continue with Google",
-              style: TextStyle( color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14,),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -453,44 +534,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final color = ok ? UColors.success : muted;
     return Row(
       children: [
-        Icon(ok ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: color, size: 18),
+        Icon(
+            ok
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            color: color,
+            size: 18),
         const SizedBox(width: 8),
-        Expanded( child: Text( text, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),),),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w700, fontSize: 12),
+          ),
+        ),
       ],
     );
   }
 
   Widget _sectionTitle(String t) {
-    return Text( t, style: const TextStyle( color: UColors.gold, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 11,),);
+    return Text(
+      t,
+      style: const TextStyle(
+        color: UColors.gold,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1,
+        fontSize: 11,
+      ),
+    );
   }
 
   Widget _kv(String k, String v, Color muted, Color textMain) {
     return Row(
       children: [
-        Expanded(child: Text(k, style: TextStyle(color: muted, fontWeight: FontWeight.w700))),
+        Expanded(
+            child: Text(k,
+                style: TextStyle(color: muted, fontWeight: FontWeight.w700))),
         Text(v, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
       ],
     );
   }
 
   // ✅ FIX: This widget now ONLY uses dark theme colors
-  Widget _field({ required String label, required TextEditingController controller, required IconData icon, required String hint }) {
+  Widget _field(
+      {required String label,
+      required TextEditingController controller,
+      required IconData icon,
+      required String hint}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle( color: UColors.gold, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2,)),
+        Text(label.toUpperCase(),
+            style: const TextStyle(
+              color: UColors.gold,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            )),
         const SizedBox(height: 10),
         Container(
-          decoration: BoxDecoration( color: UColors.darkInput, borderRadius: BorderRadius.circular(16), border: Border.all(color: UColors.darkBorder),),
+          decoration: BoxDecoration(
+            color: UColors.darkInput,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: UColors.darkBorder),
+          ),
           child: TextField(
             controller: controller,
-            style: const TextStyle(color: UColors.darkText, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+                color: UColors.darkText, fontWeight: FontWeight.w700),
             decoration: InputDecoration(
               border: InputBorder.none,
               hintText: hint,
               hintStyle: const TextStyle(color: UColors.darkMuted),
               prefixIcon: Icon(icon, color: UColors.darkMuted),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             ),
           ),
         ),
@@ -499,18 +617,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ✅ FIX: This widget also now ONLY uses dark theme colors
-  Widget _passwordField({ required String label, required TextEditingController controller, required IconData icon, required String hint, required bool obscure, required VoidCallback onToggle,}) {
+  Widget _passwordField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required String hint,
+    required bool obscure,
+    required VoidCallback onToggle,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle( color: UColors.gold, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2,)),
+        Text(label.toUpperCase(),
+            style: const TextStyle(
+              color: UColors.gold,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            )),
         const SizedBox(height: 10),
         Container(
-          decoration: BoxDecoration( color: UColors.darkInput, borderRadius: BorderRadius.circular(16), border: Border.all(color: UColors.darkBorder),),
+          decoration: BoxDecoration(
+            color: UColors.darkInput,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: UColors.darkBorder),
+          ),
           child: TextField(
             controller: controller,
             obscureText: obscure,
-            style: const TextStyle(color: UColors.darkText, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+                color: UColors.darkText, fontWeight: FontWeight.w700),
             decoration: InputDecoration(
               border: InputBorder.none,
               hintText: hint,
@@ -518,9 +654,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               prefixIcon: Icon(icon, color: UColors.darkMuted),
               suffixIcon: IconButton(
                 onPressed: onToggle,
-                icon: Icon(obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded, color: UColors.darkMuted),
+                icon: Icon(
+                    obscure
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: UColors.darkMuted),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             ),
           ),
         ),
@@ -541,21 +682,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: Colors.white.withAlpha(20)),
         ),
-        title: const Text("Reset Password", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Reset Password",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(
           "Enter your matric number to receive a reset link via email.",
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel", style: TextStyle(color: Colors.white54))),
-          TextButton(onPressed: () { Navigator.pop(ctx); _toast("Reset link sent! 📧"); }, child: const Text("Send", style: TextStyle(color: UColors.gold, fontWeight: FontWeight.bold))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancel",
+                  style: TextStyle(color: Colors.white54))),
+          TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _toast("Reset link sent! 📧");
+              },
+              child: const Text("Send",
+                  style: TextStyle(
+                      color: UColors.gold, fontWeight: FontWeight.bold))),
         ],
       ),
     );
   }
 
   Future<void> _doLogin() async {
-    setState(() { errorMsg = null; successMsg = null; });
+    setState(() {
+      errorMsg = null;
+      successMsg = null;
+    });
     final matric = loginMatricCtrl.text.trim();
     final pass = loginPassCtrl.text;
     if (matric.isEmpty || pass.isEmpty) {
@@ -566,7 +721,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final u = await AuthApi.login(matric: matric, password: pass);
       auth.login(name: u.name, matric: u.matric);
       if (!mounted) return;
-      setState(() { me = u; successMsg = "Login success ✅"; errorMsg = null; });
+      setState(() {
+        me = u;
+        successMsg = "Login success ✅";
+        errorMsg = null;
+      });
       _toast("Welcome ${u.name}!");
     } on AuthException catch (e) {
       setState(() => errorMsg = e.message);
@@ -576,16 +735,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _doGoogleLogin() async {
-    setState(() { errorMsg = null; successMsg = null; });
+    setState(() {
+      errorMsg = null;
+      successMsg = null;
+    });
     try {
       final u = await AuthApi.loginWithGoogle();
-      
+
       // FIX: Use first name as "Short Name" for the app display
       final shortName = u.name.split(" ").first;
       auth.login(name: shortName, matric: u.matric);
-      
+
       if (!mounted) return;
-      setState(() { me = u; successMsg = "Google Login success ✅"; errorMsg = null; });
+      setState(() {
+        me = u;
+        successMsg = "Google Login success ✅";
+        errorMsg = null;
+      });
       _toast("Welcome ${u.name}!");
     } catch (e) {
       setState(() => errorMsg = "Google Login Failed: $e");
@@ -593,28 +759,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _doSignup() async {
-    setState(() { errorMsg = null; successMsg = null; });
+    setState(() {
+      errorMsg = null;
+      successMsg = null;
+    });
     final name = nameCtrl.text.trim();
-    final matric = matricCtrl.text.trim();
     final pass = passCtrl.text;
     final confirm = confirmCtrl.text;
-    final check = _passwordCheck(pass, matric, confirm);
-    if (name.isEmpty || matric.isEmpty) {
-      setState(() => errorMsg = "Isi nama & matric dulu.");
+    final check = _passwordCheck(pass, "", confirm);
+    if (name.isEmpty) {
+      setState(() => errorMsg = "Isi nama dulu.");
       return;
     }
     if (!check.allOk) {
       setState(() => errorMsg = "Password belum ikut rules. Check checklist.");
       return;
     }
+
+    // 1. Navigate to scanner first to get matric
+    _toast("Please scan your matric card to verify.");
+    final result = await Navigator.pushNamed(context, '/scan');
+
     try {
-      final u = await AuthApi.signUp(name: name, matric: matric, password: pass);
-      auth.login(name: u.name, matric: u.matric);
-      if (!mounted) return;
-      setState(() { me = u; successMsg = "Account created ✅"; errorMsg = null; });
-      _toast("Account created. Welcome ${u.name}!");
+      if (result != null && result is Map) {
+        final extractedMatric = result['matric'] ?? "UNKNOWN";
+        
+        // 2. Create Account with extracted matric
+        final u = await AuthApi.signUp(name: name, matric: extractedMatric, password: pass);
+        if (!mounted) return;
+        
+        _toast("Account created & Verified!");
+        auth.login(name: u.name, matric: u.matric);
+      }
     } on AuthException catch (e) {
-      setState(() => errorMsg = e.message);
+      if (e.message.toLowerCase().contains("wujud") || e.message.toLowerCase().contains("exists")) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.1))),
+            title: const Text("Account Exists", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            content: const Text("This matric number is already registered. Please login instead.", 
+              style: TextStyle(color: Colors.white70)),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() => mode = "login");
+                },
+                child: const Text("Login", style: TextStyle(color: UColors.gold, fontWeight: FontWeight.bold)),
+              )
+            ],
+          ),
+        );
+      } else {
+        setState(() => errorMsg = e.message);
+      }
     } catch (e) {
       setState(() => errorMsg = "Error: $e");
     }
@@ -641,12 +841,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final hasLower = RegExp(r"[a-z]").hasMatch(p);
     final hasUpper = RegExp(r"[A-Z]").hasMatch(p);
     final hasDigit = RegExp(r"\d").hasMatch(p);
-    final hasSymbol = RegExp(r"""[!@#$%^&*()_\-+=\[\]{};:'",.<>/?\\|`~]""").hasMatch(p);
+    final hasSymbol =
+        RegExp(r"""[!@#$%^&*()_\-+=\[\]{};:'",.<>/?\\|`~]""").hasMatch(p);
     final noSequence = !_containsSequence(p);
-    final notContainMatric = m.isEmpty ? true : !p.toLowerCase().contains(m.toLowerCase());
+    final notContainMatric =
+        m.isEmpty ? true : !p.toLowerCase().contains(m.toLowerCase());
     final confirmMatch = p.isNotEmpty && (p == confirm);
-    final allOk = minLen && hasLower && hasUpper && hasDigit && hasSymbol && noSequence && notContainMatric && confirmMatch;
-    return _PassCheck( minLen: minLen, hasLower: hasLower, hasUpper: hasUpper, hasDigit: hasDigit, hasSymbol: hasSymbol, noSequence: noSequence, notContainMatric: notContainMatric, confirmMatch: confirmMatch, allOk: allOk,);
+    final allOk = minLen &&
+        hasLower &&
+        hasUpper &&
+        hasDigit &&
+        hasSymbol &&
+        noSequence &&
+        notContainMatric &&
+        confirmMatch;
+    return _PassCheck(
+      minLen: minLen,
+      hasLower: hasLower,
+      hasUpper: hasUpper,
+      hasDigit: hasDigit,
+      hasSymbol: hasSymbol,
+      noSequence: noSequence,
+      notContainMatric: notContainMatric,
+      confirmMatch: confirmMatch,
+      allOk: allOk,
+    );
   }
 
   bool _containsSequence(String s) {
@@ -664,9 +883,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _initials(String name) {
-    final parts = name.trim().split(RegExp(r"\s+")).where((e) => e.isNotEmpty).toList();
+    final parts =
+        name.trim().split(RegExp(r"\s+")).where((e) => e.isNotEmpty).toList();
     if (parts.isEmpty) return "U";
-    if (parts.length == 1) return parts.first.substring(0, min(2, parts.first.length)).toUpperCase();
+    if (parts.length == 1)
+      return parts.first.substring(0, min(2, parts.first.length)).toUpperCase();
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
@@ -697,19 +918,32 @@ class AuthApi {
   static _Session? _session;
   static final Map<String, _User> _usersByMatric = {};
 
-  static Future<_User> signUp({ required String name, required String matric, required String password, }) async {
-    await Future.delayed(const Duration(milliseconds: 450)); 
+  static Future<_User> signUp({
+    required String name,
+    required String matric,
+    required String password,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 450));
     final m = matric.trim().toUpperCase();
     if (_usersByMatric.containsKey(m)) {
       throw AuthException("Matric dah wujud. Try login.");
     }
-    final user = _User( id: _randId(), name: name.trim(), matric: m, passwordPlain: password, createdAt: DateTime.now(),);
+    final user = _User(
+      id: _randId(),
+      name: name.trim(),
+      matric: m,
+      passwordPlain: password,
+      createdAt: DateTime.now(),
+    );
     _usersByMatric[m] = user;
     _session = _Session(token: "demo_token_${_randId()}", userId: user.id);
     return user;
   }
 
-  static Future<_User> login({ required String matric, required String password, }) async {
+  static Future<_User> login({
+    required String matric,
+    required String password,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 350));
     final m = matric.trim().toUpperCase();
     final user = _usersByMatric[m];
@@ -721,7 +955,13 @@ class AuthApi {
 
   static Future<_User> loginWithGoogle() async {
     await Future.delayed(const Duration(milliseconds: 800));
-    final user = _User( id: "google_${_randId()}", name: "Google User", matric: "G-${_randId().substring(0,6).toUpperCase()}", passwordPlain: "", createdAt: DateTime.now(),);
+    final user = _User(
+      id: "google_${_randId()}",
+      name: "Google User",
+      matric: "G-${_randId().substring(0, 6).toUpperCase()}",
+      passwordPlain: "",
+      createdAt: DateTime.now(),
+    );
     _usersByMatric[user.matric] = user;
     _session = _Session(token: "google_token_${_randId()}", userId: user.id);
     return user;
@@ -766,7 +1006,13 @@ class _User {
   final String passwordPlain;
   final DateTime createdAt;
 
-  _User({ required this.id, required this.name, required this.matric, required this.passwordPlain, required this.createdAt, });
+  _User({
+    required this.id,
+    required this.name,
+    required this.matric,
+    required this.passwordPlain,
+    required this.createdAt,
+  });
 }
 
 class _Session {
@@ -786,5 +1032,15 @@ class _PassCheck {
   final bool confirmMatch;
   final bool allOk;
 
-  _PassCheck({ required this.minLen, required this.hasLower, required this.hasUpper, required this.hasDigit, required this.hasSymbol, required this.noSequence, required this.notContainMatric, required this.confirmMatch, required this.allOk, });
+  _PassCheck({
+    required this.minLen,
+    required this.hasLower,
+    required this.hasUpper,
+    required this.hasDigit,
+    required this.hasSymbol,
+    required this.noSequence,
+    required this.notContainMatric,
+    required this.confirmMatch,
+    required this.allOk,
+  });
 }
