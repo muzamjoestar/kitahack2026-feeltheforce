@@ -18,7 +18,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   // --- STATE VARIABLES ---
   bool loading = true;
-  _User? me;
+  User? me;
   String mode = "login";
   final loginMatricCtrl = TextEditingController();
   final loginPassCtrl = TextEditingController();
@@ -26,6 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final matricCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
+  String signupGender = "Male"; // Default gender
   bool hideLoginPass = true;
   bool hidePass = true;
   bool hideConfirm = true;
@@ -100,9 +101,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _customHeader(me),
-            const SizedBox(height: 14),
+            _standardHeader(),
+            const SizedBox(height: 20),
             _profileHero(me!, textMain, muted),
+            const SizedBox(height: 14),
+            _dashboardBox(muted, textMain),
             const SizedBox(height: 14),
             GlassCard(
               child: Column(
@@ -114,21 +117,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 10),
                   _kv("Matric No.", me!.matric, muted, textMain),
                   const SizedBox(height: 10),
+                  _kv("Gender", me!.gender, muted, textMain),
+                  const SizedBox(height: 10),
                   _kv("Joined", _formatDate(me!.createdAt), muted, textMain),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                text: "Logout",
-                icon: Icons.logout_rounded,
-                bg: UColors.danger,
-                fg: Colors.white,
-                onTap: _logout,
+            Row(
+              children: [
+                Expanded(
+                    child: _secondaryBtn("Edit Profile", Icons.edit_rounded,
+                        () async {
+                  await Navigator.pushNamed(context, '/edit-profile',
+                      arguments: me);
+                  _boot(); // Refresh after edit
+                })),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: _secondaryBtn("Settings", Icons.settings_rounded,
+                        () => Navigator.pushNamed(context, '/settings'))),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: SizedBox(
+                width: 200,
+                child: PrimaryButton(
+                  text: "Logout",
+                  icon: Icons.logout_rounded,
+                  bg: UColors.danger,
+                  fg: Colors.white,
+                  onTap: _logout,
+                ),
               ),
             ),
+            const SizedBox(height: 20),
           ],
         );
       }
@@ -167,7 +191,107 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// UI HELPER WIDGETS
   /// ============================
 
-  Widget _customHeader(_User? user) {
+  Widget _standardHeader() {
+    return Row(
+      children: [
+        if (Navigator.canPop(context))
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.arrow_back_rounded,
+                    color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        const Text(
+          "Profile",
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dashboardBox(Color muted, Color textMain) {
+    return GlassCard(
+      borderColor: UColors.gold.withOpacity(0.3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle("MY DASHBOARD"),
+          const SizedBox(height: 12),
+          Center(
+            child: Column(
+              children: [
+                Icon(Icons.storefront_rounded,
+                    size: 40, color: muted.withOpacity(0.5)),
+                const SizedBox(height: 8),
+                Text("No services yet",
+                    style:
+                        TextStyle(color: muted, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text("Start offering services now!",
+                    style: TextStyle(
+                        color: UColors.gold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrimaryButton(
+                    text: "Create Service",
+                    icon: Icons.add_rounded,
+                    bg: UColors.gold.withOpacity(0.2),
+                    fg: UColors.gold,
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/marketplace-post'),
+                  ),
+                )
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _secondaryBtn(String text, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(text,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _customHeader(User? user) {
     String title = "Welcome!";
     String subtitle = "Sign in to join the secure student community.";
 
@@ -199,7 +323,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _profileHero(_User u, Color textMain, Color muted) {
+  Widget _profileHero(User u, Color textMain, Color muted) {
     final initials = _initials(u.name);
     return GlassCard(
       gradient: const LinearGradient(
@@ -422,8 +546,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _signupCard(Color textMain, Color muted) {
-    final check =
-        _passwordCheck(passCtrl.text, "", confirmCtrl.text); // Matric comes later
+    final check = _passwordCheck(
+        passCtrl.text, "", confirmCtrl.text); // Matric comes later
     return GlassCard(
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
@@ -442,6 +566,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.person_rounded,
             hint: "e.g. Ali (Displayed in app)",
           ),
+          const SizedBox(height: 12),
+          _genderDropdown(),
           const SizedBox(height: 12),
           _passwordField(
             label: "Password",
@@ -505,6 +631,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _genderDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("GENDER",
+            style: TextStyle(
+              color: UColors.gold,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            )),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: UColors.darkInput,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: UColors.darkBorder),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: signupGender,
+              dropdownColor: UColors.darkCard,
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down_rounded,
+                  color: UColors.darkMuted),
+              style: const TextStyle(
+                  color: UColors.darkText, fontWeight: FontWeight.w700),
+              items: ["Male", "Female"].map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (val) => setState(() => signupGender = val!),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -783,31 +951,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       if (result != null && result is Map) {
         final extractedMatric = result['matric'] ?? "UNKNOWN";
-        
+
         // 2. Create Account with extracted matric
-        final u = await AuthApi.signUp(name: name, matric: extractedMatric, password: pass);
+        final u = await AuthApi.signUp(
+            name: name,
+            matric: extractedMatric,
+            gender: signupGender,
+            password: pass);
         if (!mounted) return;
-        
+
         _toast("Account created & Verified!");
         auth.login(name: u.name, matric: u.matric);
       }
     } on AuthException catch (e) {
-      if (e.message.toLowerCase().contains("wujud") || e.message.toLowerCase().contains("exists")) {
+      if (e.message.toLowerCase().contains("wujud") ||
+          e.message.toLowerCase().contains("exists")) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: const Color(0xFF1E293B),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.1))),
-            title: const Text("Account Exists", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            content: const Text("This matric number is already registered. Please login instead.", 
-              style: TextStyle(color: Colors.white70)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withOpacity(0.1))),
+            title: const Text("Account Exists",
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+            content: const Text(
+                "This matric number is already registered. Please login instead.",
+                style: TextStyle(color: Colors.white70)),
             actions: [
               TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
                   setState(() => mode = "login");
                 },
-                child: const Text("Login", style: TextStyle(color: UColors.gold, fontWeight: FontWeight.bold)),
+                child: const Text("Login",
+                    style: TextStyle(
+                        color: UColors.gold, fontWeight: FontWeight.bold)),
               )
             ],
           ),
@@ -915,32 +1095,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
 /// MOCK AUTH API
 /// ============================
 class AuthApi {
-  static _Session? _session;
-  static final Map<String, _User> _usersByMatric = {};
+  static Session? _session;
+  static final Map<String, User> _usersByMatric = {};
 
-  static Future<_User> signUp({
+  static Future<User> signUp({
     required String name,
     required String matric,
     required String password,
+    required String gender,
   }) async {
     await Future.delayed(const Duration(milliseconds: 450));
     final m = matric.trim().toUpperCase();
     if (_usersByMatric.containsKey(m)) {
       throw AuthException("Matric dah wujud. Try login.");
     }
-    final user = _User(
+    final user = User(
       id: _randId(),
       name: name.trim(),
       matric: m,
+      gender: gender,
       passwordPlain: password,
       createdAt: DateTime.now(),
     );
     _usersByMatric[m] = user;
-    _session = _Session(token: "demo_token_${_randId()}", userId: user.id);
+    _session = Session(token: "demo_token_${_randId()}", userId: user.id);
     return user;
   }
 
-  static Future<_User> login({
+  static Future<User> login({
     required String matric,
     required String password,
   }) async {
@@ -949,25 +1131,26 @@ class AuthApi {
     final user = _usersByMatric[m];
     if (user == null) throw AuthException("Matric tak jumpa. Sign up dulu.");
     if (user.passwordPlain != password) throw AuthException("Password salah.");
-    _session = _Session(token: "demo_token_${_randId()}", userId: user.id);
+    _session = Session(token: "demo_token_${_randId()}", userId: user.id);
     return user;
   }
 
-  static Future<_User> loginWithGoogle() async {
+  static Future<User> loginWithGoogle() async {
     await Future.delayed(const Duration(milliseconds: 800));
-    final user = _User(
+    final user = User(
       id: "google_${_randId()}",
       name: "Google User",
       matric: "G-${_randId().substring(0, 6).toUpperCase()}",
+      gender: "Not Specified",
       passwordPlain: "",
       createdAt: DateTime.now(),
     );
     _usersByMatric[user.matric] = user;
-    _session = _Session(token: "google_token_${_randId()}", userId: user.id);
+    _session = Session(token: "google_token_${_randId()}", userId: user.id);
     return user;
   }
 
-  static Future<_User?> fetchMe() async {
+  static Future<User?> fetchMe() async {
     await Future.delayed(const Duration(milliseconds: 250));
     final s = _session;
     if (s == null) return null;
@@ -975,6 +1158,26 @@ class AuthApi {
       if (u.id == s.userId) return u;
     }
     return null;
+  }
+
+  static Future<User> updateProfile({
+    required String matric,
+    String? name,
+    String? gender,
+    String? password,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    final m = matric.trim().toUpperCase();
+    final user = _usersByMatric[m];
+    if (user == null) throw AuthException("User not found.");
+
+    final newUser = user.copyWith(
+      name: name,
+      gender: gender,
+      passwordPlain: password,
+    );
+    _usersByMatric[m] = newUser;
+    return newUser;
   }
 
   static Future<void> logout() async {
@@ -999,26 +1202,43 @@ class AuthException implements Exception {
 /// ============================
 /// MODELS
 /// ============================
-class _User {
+class User {
   final String id;
   final String name;
   final String matric;
+  final String gender;
   final String passwordPlain;
   final DateTime createdAt;
 
-  _User({
+  User({
     required this.id,
     required this.name,
     required this.matric,
+    required this.gender,
     required this.passwordPlain,
     required this.createdAt,
   });
+
+  User copyWith({
+    String? name,
+    String? gender,
+    String? passwordPlain,
+  }) {
+    return User(
+      id: id,
+      name: name ?? this.name,
+      matric: matric,
+      gender: gender ?? this.gender,
+      passwordPlain: passwordPlain ?? this.passwordPlain,
+      createdAt: createdAt,
+    );
+  }
 }
 
-class _Session {
+class Session {
   final String token;
   final String userId;
-  _Session({required this.token, required this.userId});
+  Session({required this.token, required this.userId});
 }
 
 class _PassCheck {

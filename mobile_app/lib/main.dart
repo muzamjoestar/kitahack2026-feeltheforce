@@ -32,6 +32,7 @@ import 'screens/marketplace_post_screen.dart';
 import 'screens/verify_identity_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/privacy_policy_screen.dart';
+import 'screens/edit_profile_screen.dart';
 
 // FIX: Tambah 'as market' di sini untuk mengelakkan konflik nama
 import 'screens/marketplace_screen.dart' as market;
@@ -167,6 +168,7 @@ class _UniserveAppState extends State<UniserveApp> {
         '/verify-identity': (_) => const VerifyIdentityScreen(),
         '/express-driver': (_) => const ExpressDriverScreen(),
         '/privacy-policy': (_) => const PrivacyPolicyScreen(),
+        '/edit-profile': (_) => const EditProfileScreen(),
 
         // Placeholder routes
         '/pc-repair': (_) => const market.MarketplaceScreen(),
