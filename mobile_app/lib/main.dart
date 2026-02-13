@@ -8,7 +8,6 @@ import 'services/order_store.dart';
 import 'services/print_store.dart';
 
 import 'ui/uniserve_ui.dart';
-import 'package:app_links/app_links.dart'; // 1. IMPORT THIS
 
 import 'screens/home_screen.dart';
 import 'screens/transport_screen.dart';
@@ -42,7 +41,7 @@ void main() {
       child: const UniserveApp(),
     ),
   );
-
+}
 
 class UniserveApp extends StatefulWidget {
   const UniserveApp({super.key});
@@ -53,7 +52,7 @@ class UniserveApp extends StatefulWidget {
 
 class _UniserveAppState extends State<UniserveApp> {
   ThemeMode mode = ThemeMode.light;
-  
+
   void toggleTheme() {
     setState(() {
       mode = (mode == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
@@ -64,9 +63,6 @@ class _UniserveAppState extends State<UniserveApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      
-      // 5. ATTACH THE NAVIGATOR KEY HERE
-      navigatorKey: navigatorKey, 
 
       themeMode: mode,
       theme: AppTheme.light(),
