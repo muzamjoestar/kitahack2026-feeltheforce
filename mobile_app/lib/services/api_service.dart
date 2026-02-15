@@ -5,8 +5,8 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 
 class ApiService {
-  // 🔴 CHANGE THIS EVERY TIME RESTARTING NGROK
-  static const String baseUrl = "https://YOUR_NGROK_URL.ngrok-free.app"; 
+  // PERMENANT URL for the FastAPI backend using Google Cloud Run
+  static const String baseUrl = "https://uniserve-backend-951442291563.us-central1.run.app"; 
 
   static Future<Map<String, dynamic>?> scanMatricCard(File imageFile) async {
     try {
