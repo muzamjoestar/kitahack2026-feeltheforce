@@ -16,9 +16,7 @@ def clean_json_text(text: str):
        
 """Function to analyze matric card image and extract details using Gemini API."""
 def analyze_card(image_bytes, model)-> dict:
-    genai.configure(api_key=api_key)
-    model=genai.GenerativeModel("gemini-3-flash-preview")
-    
+    # Use the 'model' passed in the argument (configured in main.py)
     prompt = """     
     Analyze this image. Check if the card has:
     - International Islamic University Malaysia logo

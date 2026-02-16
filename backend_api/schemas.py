@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 class MatricCardDetails(BaseModel):
-    matric_number: int
+    matric_number: str
     name: str
     kulliyyah: str
     

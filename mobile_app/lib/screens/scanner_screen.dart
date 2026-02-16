@@ -4,6 +4,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import '../services/api_service.dart';
+import '../state/auth_store.dart';
+import 'profile_screen.dart';
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
 
@@ -24,6 +28,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   late Future<void> _initializeControllerFuture;
   bool _showInstructions = true;
   bool _flashOn = false;
+  int _selectedCameraIndex = 0;
 
   // --- NEW STATE VARIABLES ---
   _ScanState _state = _ScanState.camera;
@@ -45,7 +50,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
 
     _controller = CameraController(
-      widget.cameras.first, // Usually the back camera
+      widget.cameras[_selectedCameraIndex],
       ResolutionPreset.high,
       enableAudio: false,
     );
@@ -63,6 +68,37 @@ class _ScannerScreenState extends State<ScannerScreen> {
     super.dispose();
   }
 
+  Future<void> _switchCamera() async {
+    if (widget.cameras.length < 2) return;
+
+    final oldController = _controller;
+    
+    // Cycle to the next camera that is facing the back
+    int newIndex = _selectedCameraIndex;
+    int attempts = 0;
+    do {
+      newIndex = (newIndex + 1) % widget.cameras.length;
+      attempts++;
+    } while (widget.cameras[newIndex].lensDirection != CameraLensDirection.back && 
+             attempts < widget.cameras.length);
+
+    final newController = CameraController(
+      widget.cameras[newIndex],
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
+
+    _initializeControllerFuture = newController.initialize();
+
+    setState(() {
+      _selectedCameraIndex = newIndex;
+      _controller = newController;
+      _flashOn = false;
+    });
+
+    await oldController.dispose();
+  }
+
   Future<void> _toggleFlash() async {
     if (widget.cameras.isEmpty || !_controller.value.isInitialized) return;
     try {
@@ -71,6 +107,31 @@ class _ScannerScreenState extends State<ScannerScreen> {
           .setFlashMode(_flashOn ? FlashMode.torch : FlashMode.off);
     } catch (e) {
       debugPrint("Flash Error: $e");
+    }
+  }
+
+  Future<File?> _compressImage(File file) async {
+    try {
+      final filePath = file.absolute.path;
+      final lastIndex = filePath.lastIndexOf('.');
+      final targetPath = lastIndex == -1
+          ? "${filePath}_compressed.jpg"
+          : "${filePath.substring(0, lastIndex)}_compressed.jpg";
+
+      final XFile? result = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70,
+        minWidth: 1024,
+        minHeight: 1024,
+      );
+
+      if (result == null) return null;
+      final compressed = File(result.path);
+      return await compressed.exists() ? compressed : null;
+    } catch (e) {
+      debugPrint("Compression Error: $e");
+      return null;
     }
   }
 
@@ -89,24 +150,51 @@ class _ScannerScreenState extends State<ScannerScreen> {
         _progress = 0.0;
       });
 
-      // 2. Simulate AI Analysis Progress
-      for (int i = 0; i <= 100; i += 2) {
-        await Future.delayed(const Duration(milliseconds: 40));
+      // 2. Simulate AI Analysis Progress (visual only)
+      for (int i = 0; i <= 40; i++) {
+        await Future.delayed(const Duration(milliseconds: 20));
         if (mounted) setState(() => _progress = i / 100);
       }
 
-      // 3. Mock Extracted Data (Replace with real API call later)
-      _nameCtrl.text = "ALI BIN ABU";
-      _matricCtrl.text = "2115543";
-      _kulliyyahCtrl.text = "KICT";
-      _isValid = true;
+      // 3. Call the REAL API
+      final originalFile = File(image.path);
+      final compressedFile = await _compressImage(originalFile);
 
-      // 4. Show Results
+      final extractedData = await ApiService.scanMatricCard(compressedFile ?? originalFile);
+      
+      // Continue progress animation
+      for (int i = 41; i <= 100; i++) {
+        await Future.delayed(const Duration(milliseconds: 15));
+        if (mounted) setState(() => _progress = i / 100);
+      }
+
+
+      if (extractedData != null) {
+        // 4. Set Data & Show Results
+        _nameCtrl.text = extractedData['fullName']?.toString() ?? "N/A";
+        _matricCtrl.text = extractedData['matricNumber']?.toString() ?? "N/A";
+        _kulliyyahCtrl.text = extractedData['kulliyyah']?.toString() ?? "N/A";
+        _isValid = true;
+      } else {
+        _nameCtrl.text = "Error";
+        _matricCtrl.text = "Could not read card";
+        _kulliyyahCtrl.text = "Please try again";
+        _isValid = false;
+      }
+
       if (mounted) {
         setState(() => _state = _ScanState.results);
       }
     } catch (e) {
-      debugPrint("Error: $e");
+      debugPrint("Error taking picture or processing: $e");
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Scan timed out or failed. Please try again.")),
+        );
+        setState(() {
+          _state = _ScanState.camera; // Go back to camera on error
+        });
+      }
     }
   }
 
@@ -271,6 +359,27 @@ class _ScannerScreenState extends State<ScannerScreen> {
                       ),
                     ),
                   ),
+
+                  // Camera Switch Button
+                  if (widget.cameras.length > 1)
+                    Positioned(
+                      top: 50,
+                      right: 80,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black45,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: _switchCamera,
+                          icon: const Icon(
+                            Icons.cameraswitch_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
 
                 // Layer: Instructions Screen (Glassmorphism)
@@ -628,18 +737,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
               SizedBox(
                 width: double.infinity,
                 child: PrimaryButton(
-                  text: "Continue",
+                  text: "Confirm & Continue",
                   icon: Icons.arrow_forward_rounded,
                   bg: UColors.gold,
-                  onTap: () {
-                    // Return extracted data
-                    Navigator.of(context).pop({
-                      'name': _nameCtrl.text,
-                      'matric': _matricCtrl.text,
-                      'kulliyyah': _kulliyyahCtrl.text,
-                      'syncGoogle': _syncGoogle,
-                    });
-                  },
+                  onTap: _finalizeVerification,
                 ),
               ),
             ],
@@ -647,6 +748,40 @@ class _ScannerScreenState extends State<ScannerScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _finalizeVerification() async {
+    if (!_isValid) return; // Don't proceed if the card was invalid
+
+    final scannedData = {
+      'fullName': _nameCtrl.text,
+      'matric': _matricCtrl.text,
+      'kulliyyah': _kulliyyahCtrl.text,
+    };
+
+    try {
+      // If user is already logged in, update their profile (Mock)
+      if (auth.isLoggedIn && auth.matric != null) {
+        await AuthApi.updateProfile(
+          matric: auth.matric!,
+          name: _nameCtrl.text,
+        );
+      }
+
+      if (mounted) {
+        // Return data to the previous screen (ProfileScreen expects this)
+        Navigator.pop(context, scannedData);
+      }
+    } catch (e) {
+      debugPrint("Verification Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Verification saved locally.")),
+        );
+        // Still pop to ensure flow continues
+        Navigator.pop(context, scannedData);
+      }
+    }
   }
 
   Widget _buildEditField(String label, TextEditingController ctrl) {
