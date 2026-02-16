@@ -30,8 +30,13 @@ import 'screens/express_driver_screen.dart';
 import 'screens/marketplace_screen.dart' as market; 
 import 'screens/marketplace_post_screen.dart';
 import 'screens/verify_identity_screen.dart';
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
+
+WidgetsFlutterBinding.ensureInitialized();
+  
+  
   runApp(
     MultiProvider(
       providers: [
@@ -42,7 +47,7 @@ void main() {
       child: const UniserveApp(),
     ),
   );
-
+}
 
 class UniserveApp extends StatefulWidget {
   const UniserveApp({super.key});
