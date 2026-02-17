@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+# --- Custom Backend Additions ---
+# Firebase configuration (contains project IDs and API keys)
+google-services.json
+
+# Environment variables (contains local secrets)
+.env

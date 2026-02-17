@@ -9,7 +9,12 @@ import 'services/print_store.dart';
 
 import 'ui/uniserve_ui.dart';
 import 'package:app_links/app_links.dart'; // 1. IMPORT THIS
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/transport_screen.dart';
 import 'screens/runner_screen.dart';
@@ -32,10 +37,16 @@ import 'screens/marketplace_post_screen.dart';
 import 'screens/verify_identity_screen.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
 
 WidgetsFlutterBinding.ensureInitialized();
   
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // 3. Keep your existing .env and Provider code below
+  await dotenv.load(fileName: ".env");
   
   runApp(
     MultiProvider(
@@ -77,9 +88,12 @@ class _UniserveAppState extends State<UniserveApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
 
-      home: HomeScreen(onToggleTheme: toggleTheme),
+      home: const LoginScreen(),
 
       routes: {
+        '/login': (_) => const LoginScreen(),
+        '/register': (_) =>  RegisterScreen(),
+        '/home': (_) => HomeScreen(onToggleTheme: toggleTheme),
         '/runner': (_) => const RunnerScreen(),
         '/assignment': (_) => const AssignmentScreen(),
         '/barber': (_) => const BarberScreen(),

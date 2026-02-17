@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../api/home_api.dart';
 import '../ui/uniserve_ui.dart';
 import '../theme/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -38,236 +40,177 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMain = isDark ? UColors.darkText : UColors.lightText;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+Widget build(BuildContext context) {
+  // 1. Get the current logged-in user's ID
+  final String uid = FirebaseAuth.instance.currentUser?.uid ?? "";
 
-    return Scaffold(
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _homeFuture,
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return _loading(muted);
-              }
-              if (snap.hasError) {
-                return _error(textMain, muted, snap.error.toString());
-              }
+  return Scaffold(
+    body: SafeArea(
+      child: StreamBuilder<DocumentSnapshot>(
+        // 2. Listen to the specific user document in Firestore
+        stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+        builder: (context, snapshot) {
+          // Show loading if data hasn't arrived
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final textMain = isDark ? UColors.darkText : UColors.lightText;
+          final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
 
-              final data = snap.data ?? {};
-              final user = (data["user"] as Map?)?.cast<String, dynamic>() ?? {};
-              final wallet = (data["wallet"] as Map?)?.cast<String, dynamic>() ?? {};
-              final stats = (data["stats"] as Map?)?.cast<String, dynamic>() ?? {};
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _loading(UColors.darkMuted); 
+          }
 
-              final services = ((data["services"] as List?) ?? const [])
-                  .cast<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
+          // Fallback if user doesn't exist in Firestore yet
+          final userData = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+          
+          
+          final services = [
+    {"label": "Runner", "route": "/runner", "icon": "run", "color": "info"},
+    {"label": "Transport", "route": "/transport", "icon": "car", "color": "warning"},
+    {"label": "Print", "route": "/print", "icon": "print", "color": "gold"},
+    {"label": "Parcel", "route": "/parcel", "icon": "box", "color": "success"},
+    {"label": "Marketplace", "route": "/marketplace", "icon": "grid", "color": "gold"},
+    {"label": "Photo", "route": "/photo", "icon": "camera", "color": "purple"},
+    {"label": "Explore", "route": "/explore", "icon": "grid", "color": "cyan"},
+    {"label": "More", "route": "/more", "icon": "grid", "color": "gold"},
+  ];
 
-              final recent = ((data["recent"] as List?) ?? const [])
-                  .cast<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
+          // 3. Extract your REAL cloud data
+          final name = userData['name'] ?? "Student";
+          final studentId = userData['studentId'] ?? "No Matric";
+          final balance = (userData['balance'] ?? 0.0).toDouble();
 
-              final quick = ((data["quick"] as List?) ?? const [])
-                  .cast<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
+          return Stack(
+            children: [
+              RefreshIndicator(
+                  onRefresh: _refresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 140),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _topHeader(
+                      name: name, // NOW SHOWS "IPAN"
+                      avatarUrl: "", 
+                      verified: true,
+                      textMain: isDark ? UColors.darkText : UColors.lightText,
+                      muted: muted,
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: _walletAndStats(
+                        textMain: textMain,
+                        muted: muted,
+                        balance: balance, // NOW SHOWS REAL WALLET BALANCE
+                        ordersThisWeek: 0,
+                        savedThisMonth: 0,
+                        rating: 5.0,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-              // ✅ driver flag (backend kena bagi "driver": {registered,status})
-              final driver = (data["driver"] as Map?)?.cast<String, dynamic>() ?? {};
-              final driverRegistered = driver["registered"] == true;
-              final driverStatus = (driver["status"] ?? "").toString().toLowerCase();
-              final showDriverDashboard = driverRegistered && driverStatus == "approved";
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: _sectionTitle("Services", textMain),
+          ),
+          const SizedBox(height: 10),
 
-              final name = (user["name"] ?? "Student").toString();
-              final avatarUrl = (user["avatarUrl"] ?? "").toString();
-              final verified = (user["verified"] == true);
+          // 2. THIS IS THE KEY: Pass the 'services' list here!
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: _servicesGridBig(services, muted), // Change this to 'services'
+          ),
 
-              final balance = (wallet["balance"] as num?)?.toDouble() ?? 0.0;
+          const SizedBox(height: 18),
 
-              // ✅ normalize services: kalau API bagi Wallet -> jadi Photo
-              final servicesNorm = (services.isEmpty
-                      ? <Map<String, dynamic>>[]
-                      : services)
-                  .map((s) {
-                final label = (s["label"] ?? "").toString().toLowerCase().trim();
-                if (label == "wallet") {
-                  return {
-                    ...s,
-                    "label": "Photo",
-                    "icon": "camera",
-                    "route": "/photo",
-                    "color": s["color"] ?? "purple",
-                  };
-                }
-                return s;
-              }).toList();
+          Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 18),
+  child: _sectionTitle("Quick actions", textMain),
+),
+const SizedBox(height: 10),
 
-              return Stack(
-                children: [
-                  SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 140),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _topHeader(
-                          name: name,
-                          avatarUrl: avatarUrl,
-                          verified: verified,
-                          textMain: textMain,
-                          muted: muted,
-                        ),
-                        const SizedBox(height: 12),
+SizedBox(
+  height: 118,
+  child: ListView(
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    scrollDirection: Axis.horizontal,
+    children: [
+      _quickCard(
+        title: "Topup Wallet",
+        subtitle: "Fast balance reload",
+        onTap: () => Navigator.pushNamed(context, "/wallet"),
+      ),
+      const SizedBox(width: 10),
+      _quickCard(
+        title: "Verify Identity",
+        subtitle: "Unlock driver status",
+        onTap: () => Navigator.pushNamed(context, "/verify-identity"),
+      ),
+    ],
+  ),
+),
 
-                        Padding(
+          Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: _walletAndStats(
-                            textMain: textMain,
-                            muted: muted,
-                            balance: balance,
-                            ordersThisWeek: (stats["ordersThisWeek"] as num?)?.toInt() ?? 0,
-                            savedThisMonth: (stats["savedThisMonth"] as num?)?.toInt() ?? 0,
-                            rating: (stats["rating"] as num?)?.toDouble() ?? 0.0,
-                          ),
+                          child: _promoRow(textMain, muted),
                         ),
-
-                        // ✅ OPTION 1: Driver Dashboard card (tak tersorok)
-                        if (showDriverDashboard) ...[
-                          const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
-                            child: GlassCard(
-                              borderColor: UColors.success.withAlpha(110),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                leading: const Icon(Icons.local_taxi_rounded, color: UColors.success),
-                                title: Text(
-                                  "Driver Dashboard",
-                                  style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
-                                ),
-                                subtitle: Text(
-                                  "View jobs, earnings & status",
-                                  style: TextStyle(color: muted, fontWeight: FontWeight.w700),
-                                ),
-                                trailing: Icon(Icons.chevron_right_rounded, color: muted),
-                                onTap: () => Navigator.pushNamed(context, "/driver-dashboard"),
-                              ),
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 16),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: _sectionTitle("Services", textMain),
-                        ),
-                        const SizedBox(height: 10),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: _servicesGridBig(servicesNorm, muted),
-                        ),
-
+                        
                         const SizedBox(height: 18),
-
-                        if (quick.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18),
-                            child: _sectionTitle("Quick actions", textMain),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            height: 118,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 18),
-                              scrollDirection: Axis.horizontal,
-                              itemCount: quick.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 10),
-                              itemBuilder: (_, i) => _quickCard(
-                                title: quick[i]["title"].toString(),
-                                subtitle: quick[i]["subtitle"].toString(),
-                                onTap: () => Navigator.pushNamed(context, quick[i]["route"].toString()),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                        ],
 
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 18),
                           child: _sectionTitle("Recent activity", textMain),
                         ),
                         const SizedBox(height: 10),
-
+                        
+                        // ✅ ACTIVITY TILE REFERENCED (Example placeholder)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: Column(
-                            children: recent.isEmpty
-                                ? [
-                                    GlassCard(
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.history_rounded, color: muted),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              "No activity yet. Try using a service.",
-                                              style: TextStyle(color: muted, fontWeight: FontWeight.w700),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ]
-                                : recent
-                                    .map((a) => Padding(
-                                          padding: const EdgeInsets.only(bottom: 10),
-                                          child: _activityTile(a, textMain, muted),
-                                        ))
-                                    .toList(),
-                          ),
+                          child: _activityTile({
+                            "title": "Welcome to UniServe",
+                            "type": "System",
+                            "when": "Just now",
+                            "amount": 0,
+                            "icon": "grid",
+                            "color": "gold"
+                          }, textMain, muted),
                         ),
+                  ],
+                ),
+              ),
+              ),
 
-                        const SizedBox(height: 18),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          child: _promoRow(textMain, muted),
-                        ),
-
-                        const SizedBox(height: 40),
-                      ],
-                    ),
+              // ✅ FLOATING BUTTONS REFERENCED
+                Positioned(
+                  right: 16,
+                  bottom: 110,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _floatingAskAi(),
+                      const SizedBox(height: 10),
+                      _floatingMarket(),
+            ],
                   ),
-
-                  // ✅ Floating buttons
-                  Positioned(
-                    right: 16,
-                    bottom: 98,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _floatingAskAi(),
-                        const SizedBox(height: 10),
-                        _floatingMarket(),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
           ),
-        ),
+            ],
+          );
+        },
       ),
-      bottomNavigationBar: _bottomNav(textMain, muted),
-    );
-  }
+    ),
+
+    bottomNavigationBar: Builder(
+        builder: (context) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return _bottomNav(
+            isDark ? UColors.darkText : UColors.lightText, 
+            isDark ? UColors.darkMuted : UColors.lightMuted
+  );
+}
+    ),
+  );
+}
 
   // ---------- UI pieces ----------
 

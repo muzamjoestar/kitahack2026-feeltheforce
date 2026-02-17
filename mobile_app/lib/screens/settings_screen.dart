@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../ui/uniserve_ui.dart';
 import '../theme/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../screens/login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final VoidCallback onToggleTheme;
@@ -40,7 +42,6 @@ class SettingsScreen extends StatelessWidget {
             style: TextStyle(color: muted, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 18),
-
           _section("Appearance"),
           _tile(
             context,
@@ -53,7 +54,6 @@ class SettingsScreen extends StatelessWidget {
               activeThumbColor: UColors.gold,
             ),
           ),
-
           const SizedBox(height: 14),
           _section("Account"),
           _tile(
@@ -70,7 +70,6 @@ class SettingsScreen extends StatelessWidget {
             subtitle: "Balance, topup & history",
             onTap: () => _toast(context, "Wallet (demo)"),
           ),
-
           const SizedBox(height: 14),
           _section("AI & Services"),
           _tile(
@@ -87,7 +86,6 @@ class SettingsScreen extends StatelessWidget {
             subtitle: "Runner, Transport, Print",
             onTap: () => _toast(context, "Service settings"),
           ),
-
           const SizedBox(height: 14),
           _section("Security"),
           _tile(
@@ -103,9 +101,19 @@ class SettingsScreen extends StatelessWidget {
             title: "Logout",
             subtitle: "Sign out from account",
             danger: true,
-            onTap: () => _toast(context, "Logged out (demo)"),
+            onTap: () async {
+  print("Logout button clicked!"); // This will show up in your terminal
+  try {
+    await FirebaseAuth.instance.signOut();
+    print("Firebase sign out successful");
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false,);
+    }
+  } catch (e) {
+    print("Logout error: $e");
+  }
+},
           ),
-
           const SizedBox(height: 24),
           Center(
             child: Text(
@@ -151,6 +159,8 @@ class SettingsScreen extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector( // ADD THIS WRAPPER
+      onTap: onTap,
       child: GlassCard(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -192,11 +202,11 @@ class SettingsScreen extends StatelessWidget {
             if (trailing != null)
               trailing
             else
-              const Icon(Icons.chevron_right_rounded,
-                  color: UColors.darkMuted),
+              const Icon(Icons.chevron_right_rounded, color: UColors.darkMuted),
           ],
         ),
       ),
+    ),
     );
   }
 
