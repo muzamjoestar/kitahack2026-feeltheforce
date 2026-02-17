@@ -93,7 +93,7 @@ Follow these steps to set up the project locally.
 
 ## 🤝 Contributors
 
-* **Team FeelTheForce** - *KitaHack 2026*
+* **Team FEEL THE FORCE** - *KitaHack 2026*
 
 ---
 
