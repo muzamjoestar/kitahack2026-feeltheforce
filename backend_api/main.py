@@ -3,6 +3,12 @@ import google.generativeai as genai
 from scanner import analyze_card
 from schemas import MatricCardDetails, MatricCardResponse
 import os
+import traceback
+from dotenv import load_dotenv
+from pathlib import Path
+
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 """Initialize FastAPI app."""
 app = FastAPI()
@@ -11,6 +17,7 @@ app = FastAPI()
 def get_gemini_api():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
+        print("❌ ERROR: GEMINI_API_KEY is missing from environment variables!")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="GEMINI_API_KEY not configured in .env file",
@@ -28,22 +35,26 @@ def read_root():
 @app.post("/verify-matric-card")
 async def verify_matric_card(file: UploadFile = File(...),
                              model = Depends(get_gemini_api)):
-    
-    #
-    image_data = await file.read()
-    raw_extracted = analyze_card(image_data, model)
-    if "error" in raw_extracted:
-        print(f"🚨 DEBUG ERROR: {raw_extracted['error']}") 
+    try:
+        #
+        image_data = await file.read()
+        raw_extracted = analyze_card(image_data, model)
+        if "error" in raw_extracted:
+            print(f"🚨 DEBUG ERROR: {raw_extracted['error']}") 
+            
+            # Send the real error to the frontend to see it in Swagger
+            return MatricCardResponse(valid=False, message=f"Error: {raw_extracted['error']}")
         
-        # Send the real error to the frontend to see it in Swagger
-        return MatricCardResponse(valid=False, message=f"Error: {raw_extracted['error']}")
-    
-    if raw_extracted.get("valid") is True:
-        details = MatricCardDetails(
-            matric_number=raw_extracted.get("matric_number", "Unknown"),
-            name=raw_extracted.get("name", "Unknown"),
-            kulliyyah=raw_extracted.get("kulliyyah", "Unknown"),
-        )
-        return MatricCardResponse(valid=True, details=details, message="Valid matric card.")
-    else:
-        return MatricCardResponse(valid=False, message="Invalid matric card.")
+        if raw_extracted.get("valid") is True:
+            details = MatricCardDetails(
+                matric_number=raw_extracted.get("matric_number", "Unknown"),
+                name=raw_extracted.get("name", "Unknown"),
+                kulliyyah=raw_extracted.get("kulliyyah", "Unknown"),
+            )
+            return MatricCardResponse(valid=True, details=details, message="Valid matric card.")
+        else:
+            return MatricCardResponse(valid=False, message="Invalid matric card.")
+    except Exception as e:
+        print("🔥🔥🔥 CRITICAL SERVER ERROR:")
+        print(traceback.format_exc())
+        return MatricCardResponse(valid=False, message=f"Internal Server Error: {str(e)}")
