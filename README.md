@@ -1,60 +1,54 @@
-# 🚀 [APP NAME] - Kitahack 2026
+# Uniserve - IIUM Student SuperApp 🚀
 
-> **The "Grab" for IIUM Students — Safe, Verified, and Powered by AI.**
+**Uniserve** is a comprehensive mobile platform designed to digitize and streamline campus life for IIUM students. From verifying student identity to requesting print services and finding runners, Uniserve connects the campus community in one premium, easy-to-use app.
 
-![Project Banner](https://placehold.co/1200x300?text=Project+Banner+Image+Here)
-*(Add a screenshot or banner image here later)*
+## ✨ Key Features
 
-## 📖 About The Project
-**[APP NAME]** is a centralized marketplace and safety platform designed exclusively for IIUM students. It solves the problem of fragmented Telegram groups and unverified strangers on campus.
+### 🆔 Smart Identity Verification
+- **AI-Powered Scanner**: Scan your IIUM Matric card to instantly verify your identity.
+- **Smart Camera UI**: Features a custom overlay, tap-to-focus, flash toggle, and visual guidance.
+- **Validation Logic**: Automatically detects valid/invalid cards with helpful error handling and "Retake" options.
+- **Secure**: Extracted details (Name, Matric No, Kulliyyah) are verified against student records.
 
-Unlike standard marketplaces, we use **Gemini Multimodal AI** to verify student identities physically via their Matric Cards, creating a trusted "Sejahtera" ecosystem.
+### 🖨️ Print Services
+- **Remote Printing**: Upload documents (PDF, Images) directly from your phone.
+- **Custom Options**: Select paper size (A4/A3), color/B&W, double-sided, and copy count.
+- **Runner Integration**: Request a runner to pick up and deliver your printed documents.
 
-### 🌟 Key Features
-* **🛡️ AI Identity Verification:** Scans RHB MySiswa/Matric cards using Google Gemini to prevent fraud.
-* **🛒 Student Marketplace:** Buy/sell services and products (Nasi Lemak, Printing, Rides) in a trust-based environment.
-* **🚨 Safety First:** Verified "Mahallah" location tracking for safe meetups.
-* **💬 Real-Time Chat:** Built-in messaging for buyers and sellers (Planned).
+### 🛒 Campus Marketplace & Services
+- **Buy & Sell**: A dedicated space for students to trade items securely.
+- **Service Listings**: Offer skills like PC repair, tutoring, or barber services.
+- **Runner & Express**: Get food delivered or parcels picked up.
+- **Transport**: Carpooling and ride-sharing within campus.
+
+### 🔐 Authentication & Profile
+- **Flexible Login**: Sign in using Matric Number or Google.
+- **Profile Management**: Edit profile details, manage settings, and view digital ID status.
+- **Deep Linking**: Support for external links (e.g., `/verify-identity`, `/wallet`).
+
+## 🛠️ Tech Stack
+
+- **Framework**: Flutter (Dart)
+- **State Management**: Provider
+- **Camera**: `camera` package with custom overlays, image compression, and gesture handling.
+- **UI/UX**: Premium Glassmorphism design, `flutter_animate` for smooth interactions, Dark/Light mode support.
+- **Navigation**: Named routes with Deep Link support (`app_links`).
+
+## 📱 Getting Started
+
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/yourusername/uniserve.git
+    ```
+2.  **Install dependencies**:
+    ```bash
+    cd mobile_app
+    flutter pub get
+    ```
+3.  **Run the app**:
+    ```bash
+    flutter run
+    ```
 
 ---
-
-## 🛠️ Tech Stack (The "Google Sandwich")
-
-We utilized a modern, scalable architecture powered by Google technologies:
-
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Mobile App** | **Flutter** | Cross-platform UI (Android/iOS) |
-| **Brain (AI)** | **Gemini 3 Flash Preview** | ID Card verification & Fraud detection |
-| **Backend API** | **FastAPI (Python)** | High-speed orchestration layer |
-| **Database** | **Firebase Firestore** | Real-time NoSQL database |
-| **Tunneling** | **Ngrok** | Secure exposure of local AI server |
-
----
-
-## ⚙️ Installation & Setup
-
-To run this project locally, you need to run the **Backend** and **Mobile App** separately.
-
-### 1️⃣ Backend Setup (The Brain)
-*Prerequisite: Python 3.9+ installed*
-
-```bash
-# 1. Navigate to the backend folder
-cd backend_api
-
-# 2. Create and activate virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-# source venv/bin/activate # Mac/Linux
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Set up Environment Variables
-# Create a .env file and add: GEMINI_API_KEY=your_key_here
-
-# 5. Run the Server
-uvicorn main:app --reload
-#----------------
-#---------------hiiiiii
+*Built for KitaHack 2026 - Team FeelTheForce*
