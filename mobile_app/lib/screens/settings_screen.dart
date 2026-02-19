@@ -1,214 +1,179 @@
 import 'package:flutter/material.dart';
-import '../ui/uniserve_ui.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/colors.dart';
+import '../state/auth_store.dart';
+import 'profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final VoidCallback onToggleTheme;
 
-  const SettingsScreen({
-    super.key,
-    required this.onToggleTheme,
-  });
+  const SettingsScreen({super.key, required this.onToggleTheme});
+
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      // Temporary: Use AuthApi and AuthStore for logout to match ProfileScreen logic
+      await AuthApi.logout();
+      auth.logout();
+
+      if (context.mounted) {
+        // Return to root, AuthStore listener in main.dart will switch to ProfileScreen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error signing out: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final bgColor = isDark ? const Color(0xFF020617) : Colors.white;
 
-    return PremiumScaffold(
-      title: "Settings",
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: const Text('Settings'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: textColor,
+      ),
+      body: ListView(
         children: [
-          Text(
-            "App Preferences",
-            style: TextStyle(
-              color: UColors.gold,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              shadows: [
-                Shadow(
-                  color: UColors.gold.withAlpha(70),
-                  blurRadius: 18,
-                )
-              ],
-            ),
+          _SectionHeader(title: 'Account', textColor: UColors.gold),
+          _SettingsTile(
+            icon: Icons.person_outline,
+            title: 'My Profile',
+            subtitle: 'Manage personal details',
+            onTap: () => Navigator.pushNamed(context, '/profile'),
+            textColor: textColor,
           ),
-          const SizedBox(height: 6),
-          Text(
-            "Manage your account & experience",
-            style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+          _SettingsTile(
+            icon: Icons.verified_user_outlined,
+            title: 'Identity Verification',
+            subtitle: 'Scan Matric card with Gemini AI',
+            onTap: () => Navigator.pushNamed(context, '/verify-identity'),
+            textColor: textColor,
           ),
-          const SizedBox(height: 18),
-
-          _section("Appearance"),
-          _tile(
-            context,
-            icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-            title: "Theme",
-            subtitle: isDark ? "Dark Mode" : "Light Mode",
+          _SettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy Policy',
+            onTap: () => Navigator.pushNamed(context, '/privacy-policy'),
+            textColor: textColor,
+          ),
+          _SectionHeader(title: 'App Settings', textColor: UColors.gold),
+          ListTile(
+            leading: Icon(
+                isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                color: textColor),
+            title: Text("Dark Mode",
+                style:
+                    TextStyle(color: textColor, fontWeight: FontWeight.w500)),
             trailing: Switch(
               value: isDark,
               onChanged: (_) => onToggleTheme(),
-              activeThumbColor: UColors.gold,
+              activeColor: UColors.gold,
             ),
           ),
-
-          const SizedBox(height: 14),
-          _section("Account"),
-          _tile(
-            context,
-            icon: Icons.person_rounded,
-            title: "Profile",
-            subtitle: "Edit personal details",
-            onTap: () => _toast(context, "Profile (demo)"),
+          _SectionHeader(title: 'Campus Services', textColor: UColors.gold),
+          _SettingsTile(
+            icon: Icons.print_outlined,
+            title: 'Smart Print',
+            subtitle: 'Upload & track print jobs',
+            onTap: () => Navigator.pushNamed(context, '/print'),
+            textColor: textColor,
           ),
-          _tile(
-            context,
-            icon: Icons.account_balance_wallet_rounded,
-            title: "Wallet",
-            subtitle: "Balance, topup & history",
-            onTap: () => _toast(context, "Wallet (demo)"),
+          _SettingsTile(
+            icon: Icons.storefront_outlined,
+            title: 'Marketplace',
+            subtitle: 'Buy, sell & gig services',
+            onTap: () => Navigator.pushNamed(context, '/marketplace'),
+            textColor: textColor,
           ),
-
-          const SizedBox(height: 14),
-          _section("AI & Services"),
-          _tile(
-            context,
-            icon: Icons.smart_toy_rounded,
-            title: "AI Assistant",
-            subtitle: "Chat & recommendations",
-            onTap: () => _toast(context, "AI Assistant"),
+          _SectionHeader(title: 'General', textColor: UColors.gold),
+          _SettingsTile(
+            icon: Icons.logout,
+            title: 'Log Out',
+            textColor: UColors.danger,
+            onTap: () => _signOut(context),
           ),
-          _tile(
-            context,
-            icon: Icons.settings_suggest_rounded,
-            title: "Service Preferences",
-            subtitle: "Runner, Transport, Print",
-            onTap: () => _toast(context, "Service settings"),
-          ),
-
-          const SizedBox(height: 14),
-          _section("Security"),
-          _tile(
-            context,
-            icon: Icons.lock_rounded,
-            title: "Change Password",
-            subtitle: "Update your password",
-            onTap: () => _toast(context, "Change password"),
-          ),
-          _tile(
-            context,
-            icon: Icons.logout_rounded,
-            title: "Logout",
-            subtitle: "Sign out from account",
-            danger: true,
-            onTap: () => _toast(context, "Logged out (demo)"),
-          ),
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 40),
           Center(
             child: Text(
-              "UniServe v1.0.0",
-              style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+              "UniServe Beta v1.0.0",
+              style: TextStyle(
+                color: textColor.withOpacity(0.5),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
+          const SizedBox(height: 20),
         ],
-      ),
+      ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut),
     );
   }
+}
 
-  // ---------- UI helpers ----------
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final Color textColor;
+  const _SectionHeader({required this.title, required this.textColor});
 
-  Widget _section(String text) {
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          color: UColors.gold,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
+        title.toUpperCase(),
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
           letterSpacing: 1.2,
         ),
       ),
     );
   }
+}
 
-  Widget _tile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    Widget? trailing,
-    VoidCallback? onTap,
-    bool danger = false,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMain = isDark ? UColors.darkText : UColors.lightText;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-    final c = danger ? UColors.danger : textMain;
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final Color? textColor;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GlassCard(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: c.withAlpha(25),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: c.withAlpha(140)),
-              ),
-              child: Icon(icon, color: c),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: c,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (trailing != null)
-              trailing
-            else
-              const Icon(Icons.chevron_right_rounded,
-                  color: UColors.darkMuted),
-          ],
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: textColor?.withOpacity(0.7) ?? Colors.grey),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.w500,
         ),
       ),
-    );
-  }
-
-  void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? UColors.darkGlass
-            : UColors.lightGlass,
-      ),
+      subtitle: subtitle != null
+          ? Text(subtitle!,
+              style: TextStyle(color: textColor?.withOpacity(0.5)))
+          : null,
+      trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+      onTap: onTap,
     );
   }
 }
