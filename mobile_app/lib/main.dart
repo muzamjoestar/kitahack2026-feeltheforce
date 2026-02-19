@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:app_links/app_links.dart'; 
+import 'package:app_links/app_links.dart';
 import 'package:camera/camera.dart';
 import 'package:firebase_core/firebase_core.dart'; // From your branch
 import 'firebase_options.dart'; // From your branch
@@ -49,13 +49,21 @@ void main() async {
   // CRITICAL: Required for Firebase, Camera, and Deep Links
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase (Your Contribution)
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize DotEnv (Moved before Firebase)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Warning: .env file not found or failed to load: $e");
+  }
 
-  // Initialize DotEnv (Your Contribution)
-  await dotenv.load(fileName: ".env");
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase Init Error: $e");
+  }
 
   // Initialize Cameras (Main Branch Contribution)
   try {
@@ -132,9 +140,9 @@ class _UniserveAppState extends State<UniserveApp> {
       themeMode: mode,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      
+
       // Use your LoginScreen as the entry point
-      home: const LoginScreen(), 
+      home: const LoginScreen(),
 
       routes: {
         '/login': (_) => const LoginScreen(),
