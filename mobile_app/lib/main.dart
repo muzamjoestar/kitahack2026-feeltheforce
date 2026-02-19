@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:app_links/app_links.dart'; // 1. IMPORT THIS
+import 'package:app_links/app_links.dart'; 
 import 'package:camera/camera.dart';
+import 'package:firebase_core/firebase_core.dart'; // From your branch
+import 'firebase_options.dart'; // From your branch
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // From your branch
 
 // State Management Imports
 import 'state/auth_store.dart';
@@ -12,6 +15,8 @@ import 'services/print_store.dart';
 import 'ui/uniserve_ui.dart';
 
 // Screen Imports
+import 'screens/login_screen.dart'; // From your branch
+import 'screens/register_screen.dart'; // From your branch
 import 'screens/home_screen.dart';
 import 'screens/transport_screen.dart';
 import 'screens/runner_screen.dart';
@@ -33,8 +38,6 @@ import 'screens/verify_identity_screen.dart';
 import 'screens/scanner_screen.dart';
 import 'screens/privacy_policy_screen.dart';
 import 'screens/edit_profile_screen.dart';
-
-// FIX: Tambah 'as market' di sini untuk mengelakkan konflik nama
 import 'screens/marketplace_screen.dart' as market;
 
 // 2. DEFINE THE NAVIGATOR KEY GLOBALLY
@@ -43,21 +46,27 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 List<CameraDescription> cameras = [];
 
 void main() async {
-  // 3. Make main async
-  // CRITICAL: Required for Deep Links and async code in main
+  // CRITICAL: Required for Firebase, Camera, and Deep Links
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 4. Initialize Cameras BEFORE the app starts
+  // Initialize Firebase (Your Contribution)
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize DotEnv (Your Contribution)
+  await dotenv.load(fileName: ".env");
+
+  // Initialize Cameras (Main Branch Contribution)
   try {
     cameras = await availableCameras();
   } catch (e) {
-    print("Camera Error: $e"); // Helpful for debugging on emulator
+    print("Camera Error: $e");
   }
 
   runApp(
     MultiProvider(
       providers: [
-        // Ensure 'auth' is defined as a global variable in auth_store.dart
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: OrderStore.I),
         ChangeNotifierProvider.value(value: PrintStore.I),
@@ -86,8 +95,6 @@ class _UniserveAppState extends State<UniserveApp> {
 
   Future<void> initDeepLinks() async {
     _appLinks = AppLinks();
-
-    // 1. Cold Start: Handle link if app was closed
     try {
       final Uri? initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
@@ -96,24 +103,18 @@ class _UniserveAppState extends State<UniserveApp> {
     } catch (e) {
       debugPrint("Deep Link Error: $e");
     }
-
-    // 2. Warm Start: Listen to links while app is running/background
     _appLinks.uriLinkStream.listen((uri) {
       openDeepLink(uri);
     });
   }
 
   void openDeepLink(Uri uri) {
-    debugPrint("Navigating to: ${uri.path}");
-
-    // Check if navigator is mounted
     if (navigatorKey.currentState != null) {
       if (uri.path == '/verify-identity') {
         navigatorKey.currentState!.pushNamed('/verify-identity');
       } else if (uri.path == '/wallet') {
         navigatorKey.currentState!.pushNamed('/wallet');
       }
-      // Add other deep links here
     }
   }
 
@@ -131,20 +132,14 @@ class _UniserveAppState extends State<UniserveApp> {
       themeMode: mode,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-
-      // 2. REPLACE 'home: HomeScreen(...)' WITH THIS:
-      home: Consumer<AuthStore>(
-        builder: (context, auth, child) {
-          // If logged in, go to Home. If not, force Profile (Login) screen.
-          if (auth.isLoggedIn) {
-            return HomeScreen(onToggleTheme: toggleTheme);
-          } else {
-            return const ProfileScreen();
-          }
-        },
-      ),
+      
+      // Use your LoginScreen as the entry point
+      home: const LoginScreen(), 
 
       routes: {
+        '/login': (_) => const LoginScreen(),
+        '/register': (_) => RegisterScreen(),
+        '/home': (_) => HomeScreen(onToggleTheme: toggleTheme),
         '/runner': (_) => const RunnerScreen(),
         '/assignment': (_) => const AssignmentScreen(),
         '/barber': (_) => const BarberScreen(),
@@ -153,12 +148,8 @@ class _UniserveAppState extends State<UniserveApp> {
         '/print': (_) => const PrintServiceScreen(),
         '/photo': (_) => const PhotoScreen(),
         '/express': (_) => const ExpressScreen(),
-
-        // FIX: Panggil guna nama alias 'market'
         '/marketplace': (_) => const market.MarketplaceScreen(),
-
         '/marketplace-post': (_) => const MarketplacePostScreen(),
-
         '/ai': (_) => const AiScreen(),
         '/wallet': (_) => const WalletScreen(),
         '/settings': (_) => SettingsScreen(onToggleTheme: toggleTheme),
@@ -169,11 +160,8 @@ class _UniserveAppState extends State<UniserveApp> {
         '/express-driver': (_) => const ExpressDriverScreen(),
         '/privacy-policy': (_) => const PrivacyPolicyScreen(),
         '/edit-profile': (_) => const EditProfileScreen(),
-
-        // Placeholder routes
         '/pc-repair': (_) => const market.MarketplaceScreen(),
         '/rental': (_) => const market.MarketplaceScreen(),
-
         '/scan': (_) => ScannerScreen(cameras: cameras)
       },
     );

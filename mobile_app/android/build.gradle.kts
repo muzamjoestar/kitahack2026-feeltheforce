@@ -1,3 +1,5 @@
+import com.android.build.gradle.BaseExtension // Add this import first!
+
 allprojects {
     repositories {
         google()
@@ -21,4 +23,15 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+}
+
+subprojects {
+
+        if (project.hasProperty("android")) {
+            configure<com.android.build.gradle.BaseExtension> {
+            if (namespace == null) {
+                namespace = project.group.toString()
+            }
+        }
+    }
 }
