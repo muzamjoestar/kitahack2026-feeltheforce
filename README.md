@@ -1,60 +1,102 @@
-# 🚀 [APP NAME] - Kitahack 2026
+# 🚀 Uniserve: The IIUM SuperApp
 
-> **The "Grab" for IIUM Students — Safe, Verified, and Powered by AI.**
+![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/Gemini_AI-8E75B2?style=for-the-badge&logo=google-bard&logoColor=white)
 
-![Project Banner](https://placehold.co/1200x300?text=Project+Banner+Image+Here)
-*(Add a screenshot or banner image here later)*
-
-## 📖 About The Project
-**[APP NAME]** is a centralized marketplace and safety platform designed exclusively for IIUM students. It solves the problem of fragmented Telegram groups and unverified strangers on campus.
-
-Unlike standard marketplaces, we use **Gemini Multimodal AI** to verify student identities physically via their Matric Cards, creating a trusted "Sejahtera" ecosystem.
-
-### 🌟 Key Features
-* **🛡️ AI Identity Verification:** Scans RHB MySiswa/Matric cards using Google Gemini to prevent fraud.
-* **🛒 Student Marketplace:** Buy/sell services and products (Nasi Lemak, Printing, Rides) in a trust-based environment.
-* **🚨 Safety First:** Verified "Mahallah" location tracking for safe meetups.
-* **💬 Real-Time Chat:** Built-in messaging for buyers and sellers (Planned).
+> **Digitizing Campus Life.** A comprehensive mobile platform designed to streamline the student experience at the International Islamic University Malaysia (IIUM).
 
 ---
 
-## 🛠️ Tech Stack (The "Google Sandwich")
+## 📖 Overview
 
-We utilized a modern, scalable architecture powered by Google technologies:
+**Uniserve** is more than just an app; it's a digital ecosystem. Built for **KitaHack 2026**, it bridges the gap between students, services, and campus logistics. From AI-powered identity verification to peer-to-peer marketplaces and runner services, Uniserve connects the community in one premium, easy-to-use interface.
 
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Mobile App** | **Flutter** | Cross-platform UI (Android/iOS) |
-| **Brain (AI)** | **Gemini 3 Flash Preview** | ID Card verification & Fraud detection |
-| **Backend API** | **FastAPI (Python)** | High-speed orchestration layer |
-| **Database** | **Firebase Firestore** | Real-time NoSQL database |
-| **Tunneling** | **Ngrok** | Secure exposure of local AI server |
+## ✨ Key Features
+
+### 🆔 **AI-Powered Identity Verification**
+* **Smart Scanning:** Uses Google Gemini AI to instantly extract and verify student details from Matric cards.
+* **Premium UX:** Custom camera overlay with tap-to-focus, flash toggle, and real-time visual guidance.
+* **Security:** Validates matric numbers against student records automatically.
+
+### 🖨️ **Smart Print Services**
+* **Remote Printing:** Upload PDF/Images directly from your phone to campus printing shops.
+* **Customization:** Select paper size (A4/A3), color options, and binding preferences.
+* **Delivery Integration:** Request a student "Runner" to pick up and deliver your documents to your dorm.
+
+### 🛒 **Campus Marketplace & Gig Economy**
+* **Buy & Sell:** A secure platform for students to trade textbooks, electronics, and dorm essentials.
+* **Service Listings:** Find or offer skills like PC repair, tutoring, or barbering.
+* **Runner & Express:** On-demand food delivery and parcel pickup by students, for students.
+* **Transport:** Carpooling and ride-sharing coordination within campus grounds.
+
+### 🔐 **Secure Profile Management**
+* **Flexible Login:** Sign in via Matric Number or Google Auth.
+* **Digital ID:** View verification status and manage personal details.
+* **Deep Linking:** Seamless navigation with external link support (e.g., `uniserve://verify`).
 
 ---
 
-## ⚙️ Installation & Setup
+## 🛠️ Tech Stack
 
-To run this project locally, you need to run the **Backend** and **Mobile App** separately.
+| Category | Technology |
+| :--- | :--- |
+| **Frontend** | Flutter (Dart) |
+| **Backend** | Python (FastAPI) |
+| **AI Model** | Google Gemini 1.5 Flash |
+| **Cloud** | Google Cloud Run |
+| **State Management** | Provider |
+| **UI/UX** | Glassmorphism Design, `flutter_animate` |
+| **Camera** | `camera` package with `flutter_image_compress` |
 
-### 1️⃣ Backend Setup (The Brain)
-*Prerequisite: Python 3.9+ installed*
+---
 
-```bash
-# 1. Navigate to the backend folder
-cd backend_api
+## 📱 Getting Started
 
-# 2. Create and activate virtual environment
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-# source venv/bin/activate # Mac/Linux
+Follow these steps to set up the project locally.
 
-# 3. Install dependencies
-pip install -r requirements.txt
+### Prerequisites
+* Flutter SDK installed
+* Dart SDK installed
+* Git
 
-# 4. Set up Environment Variables
-# Create a .env file and add: GEMINI_API_KEY=your_key_here
+### Installation
 
-# 5. Run the Server
-uvicorn main:app --reload
-#----------------
-#---------------hiiiiii
+1.  **Clone the repository**
+    ```bash
+    git clone [https://github.com/yourusername/uniserve.git](https://github.com/yourusername/uniserve.git)
+    cd uniserve
+    ```
+
+2.  **Install Dependencies**
+    ```bash
+    cd mobile_app
+    flutter pub get
+    ```
+
+3.  **Run the App**
+    ```bash
+    flutter run
+    ```
+
+---
+
+## 📸 Screenshots
+
+| Identity Scan | Marketplace | Print Service |
+| :---: | :---: | :---: |
+| *[Add Screenshot Here]* | *[Add Screenshot Here]* | *[Add Screenshot Here]* |
+
+---
+
+## 🤝 Contributors
+
+* **Team FEEL THE FORCE** - *KitaHack 2026*
+
+---
+
+<p align="center">
+  Made with ❤️ for IIUM
+</p>

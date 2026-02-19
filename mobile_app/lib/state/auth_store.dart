@@ -7,6 +7,9 @@ class AuthStore extends ChangeNotifier {
   String? name;
   String? matric;
 
+  // ✅ FIX: Added this getter so main.dart stops complaining
+  bool get isLoggedIn => loggedIn;
+
   void login({required String name, required String matric, bool verified = false}) {
     loggedIn = true;
     this.name = name;

@@ -1,224 +1,141 @@
 import 'package:flutter/material.dart';
-import '../ui/uniserve_ui.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/colors.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../screens/login_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // From your branch
+import '../screens/login_screen.dart'; // From your branch
+import '../state/auth_store.dart'; // From main branch
+import 'profile_screen.dart'; // From main branch
 
 class SettingsScreen extends StatelessWidget {
   final VoidCallback onToggleTheme;
 
-  const SettingsScreen({
-    super.key,
-    required this.onToggleTheme,
-  });
+  const SettingsScreen({super.key, required this.onToggleTheme});
+
+  // Combined Sign Out logic
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      print("Logout initiated...");
+      
+      // 1. Sign out from Firebase (Cloud)
+      await FirebaseAuth.instance.signOut();
+      
+      // 2. Clear local state management (Main branch logic)
+      // Note: If AuthApi.logout() exists in your project, keep it here.
+      // await AuthApi.logout(); 
+      auth.logout(); 
+
+      if (context.mounted) {
+        print("Logout successful. Redirecting to Login...");
+        // Clear navigation stack and go to Login
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print("Logout error: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error signing out: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final bgColor = isDark ? const Color(0xFF020617) : Colors.white;
 
-    return PremiumScaffold(
-      title: "Settings",
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: const Text('Settings'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: textColor,
+      ),
+      body: ListView(
         children: [
-          Text(
-            "App Preferences",
-            style: TextStyle(
-              color: UColors.gold,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              shadows: [
-                Shadow(
-                  color: UColors.gold.withAlpha(70),
-                  blurRadius: 18,
-                )
-              ],
-            ),
+          _SectionHeader(title: 'Account', textColor: UColors.gold),
+          _SettingsTile(
+            icon: Icons.person_outline,
+            title: 'My Profile',
+            subtitle: 'Manage personal details',
+            onTap: () => Navigator.pushNamed(context, '/profile'),
+            textColor: textColor,
           ),
-          const SizedBox(height: 6),
-          Text(
-            "Manage your account & experience",
-            style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+          _SettingsTile(
+            icon: Icons.verified_user_outlined,
+            title: 'Identity Verification',
+            subtitle: 'Scan Matric card with Gemini AI',
+            onTap: () => Navigator.pushNamed(context, '/verify-identity'),
+            textColor: textColor,
           ),
-          const SizedBox(height: 18),
-          _section("Appearance"),
-          _tile(
-            context,
-            icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-            title: "Theme",
-            subtitle: isDark ? "Dark Mode" : "Light Mode",
+          _SettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy Policy',
+            onTap: () => Navigator.pushNamed(context, '/privacy-policy'),
+            textColor: textColor,
+          ),
+          
+          _SectionHeader(title: 'App Settings', textColor: UColors.gold),
+          ListTile(
+            leading: Icon(
+                isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                color: textColor),
+            title: Text("Dark Mode",
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
             trailing: Switch(
               value: isDark,
               onChanged: (_) => onToggleTheme(),
-              activeThumbColor: UColors.gold,
+              activeColor: UColors.gold,
             ),
           ),
-          const SizedBox(height: 14),
-          _section("Account"),
-          _tile(
-            context,
-            icon: Icons.person_rounded,
-            title: "Profile",
-            subtitle: "Edit personal details",
-            onTap: () => _toast(context, "Profile (demo)"),
+
+          _SectionHeader(title: 'Campus Services', textColor: UColors.gold),
+          _SettingsTile(
+            icon: Icons.print_outlined,
+            title: 'Smart Print',
+            subtitle: 'Upload & track print jobs',
+            onTap: () => Navigator.pushNamed(context, '/print'),
+            textColor: textColor,
           ),
-          _tile(
-            context,
-            icon: Icons.account_balance_wallet_rounded,
-            title: "Wallet",
-            subtitle: "Balance, topup & history",
-            onTap: () => _toast(context, "Wallet (demo)"),
+          _SettingsTile(
+            icon: Icons.storefront_outlined,
+            title: 'Marketplace',
+            subtitle: 'Buy, sell & gig services',
+            onTap: () => Navigator.pushNamed(context, '/marketplace'),
+            textColor: textColor,
           ),
-          const SizedBox(height: 14),
-          _section("AI & Services"),
-          _tile(
-            context,
-            icon: Icons.smart_toy_rounded,
-            title: "AI Assistant",
-            subtitle: "Chat & recommendations",
-            onTap: () => _toast(context, "AI Assistant"),
+
+          _SectionHeader(title: 'General', textColor: UColors.gold),
+          _SettingsTile(
+            icon: Icons.logout,
+            title: 'Log Out',
+            subtitle: 'Sign out from account',
+            textColor: UColors.danger,
+            onTap: () => _signOut(context), // Uses our new combined method
           ),
-          _tile(
-            context,
-            icon: Icons.settings_suggest_rounded,
-            title: "Service Preferences",
-            subtitle: "Runner, Transport, Print",
-            onTap: () => _toast(context, "Service settings"),
-          ),
-          const SizedBox(height: 14),
-          _section("Security"),
-          _tile(
-            context,
-            icon: Icons.lock_rounded,
-            title: "Change Password",
-            subtitle: "Update your password",
-            onTap: () => _toast(context, "Change password"),
-          ),
-          _tile(
-            context,
-            icon: Icons.logout_rounded,
-            title: "Logout",
-            subtitle: "Sign out from account",
-            danger: true,
-            onTap: () async {
-  print("Logout button clicked!"); // This will show up in your terminal
-  try {
-    await FirebaseAuth.instance.signOut();
-    print("Firebase sign out successful");
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false,);
-    }
-  } catch (e) {
-    print("Logout error: $e");
-  }
-},
-          ),
-          const SizedBox(height: 24),
+          
+          const SizedBox(height: 40),
           Center(
             child: Text(
-              "UniServe v1.0.0",
-              style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+              "UniServe Beta v1.0.0",
+              style: TextStyle(
+                color: textColor.withOpacity(0.5),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
+          const SizedBox(height: 20),
         ],
-      ),
-    );
-  }
-
-  // ---------- UI helpers ----------
-
-  Widget _section(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          color: UColors.gold,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-
-  Widget _tile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    Widget? trailing,
-    VoidCallback? onTap,
-    bool danger = false,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMain = isDark ? UColors.darkText : UColors.lightText;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
-    final c = danger ? UColors.danger : textMain;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector( // ADD THIS WRAPPER
-      onTap: onTap,
-      child: GlassCard(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: c.withAlpha(25),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: c.withAlpha(140)),
-              ),
-              child: Icon(icon, color: c),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: c,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (trailing != null)
-              trailing
-            else
-              const Icon(Icons.chevron_right_rounded, color: UColors.darkMuted),
-          ],
-        ),
-      ),
-    ),
-    );
-  }
-
-  void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? UColors.darkGlass
-            : UColors.lightGlass,
-      ),
+      ).animate().fadeIn(duration: 400.ms, curve: Curves.easeOut),
     );
   }
 }
+
+// ... Keep your _SectionHeader and _SettingsTile classes exactly as they are below
