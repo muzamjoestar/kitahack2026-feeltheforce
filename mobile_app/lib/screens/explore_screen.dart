@@ -10,129 +10,368 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
+  int navIndex = 1;
   final searchCtrl = TextEditingController();
-  String query = "";
-  String activeCat = "All";
 
-  final List<String> cats = const [
-    "All",
-    "Food & Beverage",
-    "Convenience Stores",
-    "Printing",
-    "Services",
-    "Study Spots",
-  ];
+  // ✅ menu placeholder (kalau nanti kau nak detail screen)
+  static const _emptyMenu = <_MenuItem>[];
 
-  final List<_Place> places = const [
-    _Place(
-      title: "Cafe Ali",
-      subtitle: "Mahallah Ali",
-      category: "Food & Beverage",
-      rating: 4.8,
-      distanceKm: 0.6,
-      openNow: true,
-      imageUrl:
-          "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400",
-      routeName: "/runner",
-    ),
-    _Place(
-      title: "CU Mart",
-      subtitle: "Student Centre",
-      category: "Convenience Stores",
-      rating: 4.9,
-      distanceKm: 0.9,
-      openNow: true,
-      imageUrl:
-          "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400",
-      routeName: "/parcel",
-    ),
-    _Place(
-      title: "KICT Printing",
-      subtitle: "KICT Level 1",
-      category: "Printing",
-      rating: 4.7,
-      distanceKm: 1.2,
-      openNow: true,
-      imageUrl:
-          "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=400",
-      routeName: "/print",
-    ),
-    _Place(
-      title: "Cafe Maryam",
-      subtitle: "Mahallah Maryam",
-      category: "Food & Beverage",
-      rating: 4.5,
-      distanceKm: 1.0,
-      openNow: false,
-      imageUrl:
-          "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=400",
-      routeName: "/runner",
-    ),
-    _Place(
-      title: "Khairul Gunting",
-      subtitle: "Mahallah Zubair",
-      category: "Services",
-      rating: 5.0,
-      distanceKm: 0.8,
-      openNow: true,
-      imageUrl:
-          "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400",
-      routeName: "/barber",
-    ),
-    _Place(
-      title: "Richiamo Coffee",
-      subtitle: "Library",
-      category: "Food & Beverage",
+  // ✅ DATA (shops) — ikut yang kau bagi
+  final List<_Shop> shops = [
+    // ===== Central / Main =====
+    _Shop(
+      id: "cu_mart_central",
+      name: "CU Mart (IIUM Gombak)",
+      cat: "Mart",
+      loc: "Central",
+      eta: 10,
       rating: 4.6,
-      distanceKm: 1.6,
-      openNow: true,
+      accent: UColors.gold,
       imageUrl:
-          "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400",
-      routeName: "/runner",
+          "https://images.unsplash.com/photo-1580915411954-282cb1b0d780?auto=format&fit=crop&w=1200&q=70",
+      menu: _emptyMenu,
     ),
-    _Place(
-      title: "7-Eleven",
-      subtitle: "Mahallah Faruq",
-      category: "Convenience Stores",
-      rating: 4.2,
-      distanceKm: 1.9,
-      openNow: true,
+    _Shop(
+      id: "co_mart_central",
+      name: "Co-Mart Central",
+      cat: "Mart",
+      loc: "Central",
+      eta: 10,
+      rating: 4.5,
+      accent: UColors.cyan,
       imageUrl:
-          "https://images.unsplash.com/photo-1580915411954-282cb1da5d35?w=400",
-      routeName: "/parcel",
+          "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1200&q=70",
+      menu: _emptyMenu,
     ),
-    _Place(
-      title: "Edu Print",
-      subtitle: "Edu Kulliyyah",
-      category: "Printing",
+    _Shop(
+      id: "7e_iium",
+      name: "7-Eleven (IIUM Gombak)",
+      cat: "Mart",
+      loc: "Central",
+      eta: 10,
       rating: 4.4,
-      distanceKm: 2.2,
-      openNow: false,
+      accent: UColors.info,
       imageUrl:
-          "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400",
-      routeName: "/print",
+          "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&q=70",
+      menu: _emptyMenu,
     ),
-    _Place(
-      title: "Study Corner",
-      subtitle: "KICT Atrium",
-      category: "Study Spots",
-      rating: 4.9,
-      distanceKm: 1.1,
-      openNow: true,
-      imageUrl:
-          "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=400",
-      routeName: "/assignment",
-    ),
+
+    // ===== Mahallah (Brothers) =====
+    _Shop(
+        id: "mh_salahuddin_mart",
+        name: "Mahallah Salahuddin Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.purple,
+        imageUrl:
+            "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_salahuddin_cafe",
+        name: "Mahallah Salahuddin Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_zubair_mart",
+        name: "Mahallah Zubair Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.cyan,
+        imageUrl:
+            "https://images.unsplash.com/photo-1580915411954-282cb1b0d780?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_zubair_cafe",
+        name: "Mahallah Zubair Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_ali_mart",
+        name: "Mahallah Ali Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.info,
+        imageUrl:
+            "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_ali_cafe",
+        name: "Mahallah Ali Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_uthman_mart",
+        name: "Mahallah Uthman Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.pink,
+        imageUrl:
+            "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_uthman_cafe",
+        name: "Mahallah Uthman Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_umar_mart",
+        name: "Mahallah Umar Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.success,
+        imageUrl:
+            "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_umar_cafe",
+        name: "Mahallah Umar Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+
+    // ===== Mahallah (Sisters) =====
+    _Shop(
+        id: "mh_aishah_mart",
+        name: "Mahallah Aishah Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.cyan,
+        imageUrl:
+            "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_aishah_cafe",
+        name: "Mahallah Aishah Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_hafsa_mart",
+        name: "Mahallah Hafsa Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.purple,
+        imageUrl:
+            "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_hafsa_cafe",
+        name: "Mahallah Hafsa Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_halimah_mart",
+        name: "Mahallah Halimah Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.info,
+        imageUrl:
+            "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_halimah_cafe",
+        name: "Mahallah Halimah Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_asma_mart",
+        name: "Mahallah Asma' Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.pink,
+        imageUrl:
+            "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_asma_cafe",
+        name: "Mahallah Asma' Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_maryam_mart",
+        name: "Mahallah Maryam Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.success,
+        imageUrl:
+            "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_maryam_cafe",
+        name: "Mahallah Maryam Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_safiyyah_mart",
+        name: "Mahallah Safiyyah Mart",
+        cat: "Mart",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.2,
+        accent: UColors.cyan,
+        imageUrl:
+            "https://images.unsplash.com/photo-1601598851547-4302969d0614?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "mh_safiyyah_cafe",
+        name: "Mahallah Safiyyah Cafe",
+        cat: "Cafe",
+        loc: "Mahallah",
+        eta: 12,
+        rating: 4.1,
+        accent: UColors.warning,
+        imageUrl:
+            "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+
+    // ===== Kulliyyah / Faculty =====
+    _Shop(
+        id: "kict_cafe",
+        name: "KICT Cafe",
+        cat: "Cafe",
+        loc: "Kulliyyah",
+        eta: 10,
+        rating: 4.0,
+        accent: UColors.teal,
+        imageUrl:
+            "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "koe_cafe",
+        name: "KOE Cafe",
+        cat: "Cafe",
+        loc: "Kulliyyah",
+        eta: 10,
+        rating: 4.0,
+        accent: UColors.teal,
+        imageUrl:
+            "https://images.unsplash.com/photo-1481833761820-0509d3217039?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+    _Shop(
+        id: "kulliyyah_mart",
+        name: "Faculty Mini Mart",
+        cat: "Mart",
+        loc: "Kulliyyah",
+        eta: 10,
+        rating: 4.0,
+        accent: UColors.info,
+        imageUrl:
+            "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=70",
+        menu: _emptyMenu),
+        _Shop(
+          id: "print_kict",
+          name: "KICT Printing Shop",
+          cat: "Printing",
+          loc: "Kulliyyah",
+          eta: 8,
+          rating: 4.3,
+          accent: UColors.gold,
+          imageUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=70",
+          menu: _emptyMenu),
+
   ];
 
-  List<_Place> get filtered {
-    final q = query.trim().toLowerCase();
-    return places.where((p) {
-      final matchCat = activeCat == "All" || p.category == activeCat;
+
+
+  // ✅ kategori auto: All + unique cats
+  late String selectedCat = "All";
+
+  List<String> get cats {
+    final set = <String>{};
+    for (final s in shops) {
+      set.add(s.cat);
+    }
+    final list = set.toList()..sort();
+    return ["All", ...list]; // ✅ All depan
+  }
+
+  List<_Shop> get filtered {
+    final q = searchCtrl.text.trim().toLowerCase();
+
+    return shops.where((s) {
+      final matchCat = selectedCat == "All" || s.cat == selectedCat;
       final matchQ = q.isEmpty ||
-          p.title.toLowerCase().contains(q) ||
-          p.subtitle.toLowerCase().contains(q) ||
-          p.category.toLowerCase().contains(q);
+          s.name.toLowerCase().contains(q) ||
+          s.loc.toLowerCase().contains(q) ||
+          s.cat.toLowerCase().contains(q);
       return matchCat && matchQ;
     }).toList();
   }
@@ -143,223 +382,197 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(milliseconds: 900)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textMain = isDark ? UColors.darkText : UColors.lightText;
     final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
 
-    return PremiumScaffold(
-      title: "Explore",
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: IconSquareButton(
-            icon: Icons.refresh_rounded,
-            onTap: () => _toast("Refreshed ✨"),
-          ),
-        )
-      ],
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: isDark ? UColors.darkBg : UColors.lightBg,
+      body: SafeArea(
+        child: Stack(
           children: [
-            Text("Discover campus gems.",
-                style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 14),
+            Positioned.fill(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 140),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _topBar(textMain, muted),
+                    const SizedBox(height: 14),
 
-            _searchBar(textMain, muted),
-            const SizedBox(height: 14),
-
-            _promoBanner(),
-            const SizedBox(height: 16),
-
-            Text("CATEGORIES",
-                style: const TextStyle(
-                  color: UColors.gold,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                  fontSize: 11,
-                )),
-            const SizedBox(height: 10),
-            _categoryChips(),
-            const SizedBox(height: 14),
-
-            _resultHeader(muted),
-            const SizedBox(height: 10),
-
-            _grid(),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _searchBar(Color textMain, Color muted) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-    final bg = isDark ? const Color(0xFF0F172A) : UColors.lightInput;
-
-    // FIX: Replaced GlassCard with Container to improve performance
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: UColors.gold.withAlpha(70)),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.search_rounded, color: muted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: searchCtrl,
-                onChanged: (v) => setState(() => query = v),
-                style: TextStyle(color: textMain, fontWeight: FontWeight.w800),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: "Find food, printing, marts...",
-                  hintStyle: TextStyle(color: muted),
-                ),
-              ),
-            ),
-            if (query.trim().isNotEmpty)
-              GestureDetector(
-                onTap: () => setState(() {
-                  searchCtrl.clear();
-                  query = "";
-                }),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withAlpha(18)),
-                  ),
-                  child: Icon(Icons.close_rounded, color: muted, size: 18),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _promoBanner() {
-    return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF3C944),
-              Color(0xFFB8860B),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: UColors.gold.withAlpha(80),
-              blurRadius: 10, // Reduced blur for performance
-              offset: const Offset(0, 16),
-            )
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text("Free Delivery!",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    )),
-                const SizedBox(height: 4),
-                Text(
-                  "For all orders above RM 15 at Cafe Ali today.",
-                  style: TextStyle(
-                    color: Colors.black.withAlpha(200),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () => _go("/runner"),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
+                    Text(
+                      "Browse by category.",
+                      style: TextStyle(color: muted, fontWeight: FontWeight.w700),
                     ),
-                    child: const Text(
-                      "Order Now",
-                      style: TextStyle(
-                        color: Colors.white,
+                    const SizedBox(height: 14),
+
+                    _searchBar(textMain, muted),
+                    const SizedBox(height: 14),
+
+                    _promoBanner(textMain, muted),
+                    const SizedBox(height: 16),
+
+                    Text(
+                      "CATEGORIES",
+                      style: const TextStyle(
+                        color: UColors.gold,
                         fontWeight: FontWeight.w900,
-                        fontSize: 12,
+                        letterSpacing: 1,
+                        fontSize: 11,
                       ),
                     ),
-                  ),
-                )
-              ]),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              width: 66,
-              height: 66,
-              decoration: BoxDecoration(
-                color: Colors.black.withAlpha(18),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.black.withAlpha(25)),
+                    const SizedBox(height: 10),
+
+                    _categoryChips(textMain, muted),
+                    const SizedBox(height: 14),
+
+                    _resultHeader(muted),
+                    const SizedBox(height: 10),
+
+                    _grid(textMain, muted), // ✅ GRID 2
+                    const SizedBox(height: 10),
+                  ],
+                ),
               ),
-              child: const Icon(Icons.delivery_dining_rounded, color: Colors.black, size: 34),
+            ),
+
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 10,
+              child: Center(child: UniservePillNav(index: navIndex)),
             ),
           ],
         ),
-      );
+      ),
+    );
   }
 
-  Widget _categoryChips() {
+  // ---------------- TOP BAR ----------------
+  Widget _topBar(Color textMain, Color muted) {
+    return Row(
+      children: [
+        IconSquareButton(
+          icon: Icons.arrow_back_rounded,
+          onTap: () => Navigator.pop(context),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          "Explore",
+          style: TextStyle(color: textMain, fontSize: 20, fontWeight: FontWeight.w900),
+        ),
+        const Spacer(),
+        IconSquareButton(
+          icon: Icons.refresh_rounded,
+          onTap: () => _toast("Refreshed ✨"),
+        ),
+      ],
+    );
+  }
+
+  // ---------------- SEARCH ----------------
+  Widget _searchBar(Color textMain, Color muted) {
+    return GlassCard(
+      child: Row(
+        children: [
+          Icon(Icons.search_rounded, color: muted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: searchCtrl,
+              onChanged: (_) => setState(() {}),
+              style: TextStyle(color: textMain, fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                hintText: "Search shops…",
+                hintStyle: TextStyle(color: muted, fontWeight: FontWeight.w700),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          if (searchCtrl.text.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.close_rounded, color: muted),
+              onPressed: () {
+                searchCtrl.clear();
+                setState(() {});
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- PROMO ----------------
+  Widget _promoBanner(Color textMain, Color muted) {
+    return GlassCard(
+      borderColor: UColors.teal.withAlpha(120),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: UColors.teal.withAlpha(20),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: UColors.teal.withAlpha(120)),
+            ),
+            child: const Icon(Icons.explore_rounded, color: UColors.teal),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Nearby in UIA", style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 2),
+                Text("Filter by category & search", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right_rounded, color: UColors.gold),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- CATEGORIES ----------------
+  Widget _categoryChips(Color textMain, Color muted) {
+    final list = cats;
+
     return SizedBox(
-      height: 44,
+      height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: cats.length,
+        itemCount: list.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
-          final c = cats[i];
-          final active = c == activeCat;
+          final c = list[i];
+          final active = selectedCat == c;
           return GestureDetector(
-            onTap: () => setState(() => activeCat = c),
+            onTap: () => setState(() => selectedCat = c),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: active ? UColors.gold : Colors.white.withAlpha(8),
+                color: active ? UColors.gold.withAlpha(18) : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: active ? UColors.gold : Colors.white.withAlpha(18),
-                ),
+                border: Border.all(color: active ? UColors.gold.withAlpha(160) : muted.withAlpha(60)),
               ),
-              child: Center(
-                child: Text(
-                  c,
-                  style: TextStyle(
-                    color: active ? Colors.black : Colors.white.withAlpha(220),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                  ),
+              child: Text(
+                c,
+                style: TextStyle(
+                  color: active ? UColors.gold : muted,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
                 ),
               ),
             ),
@@ -370,286 +583,199 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _resultHeader(Color muted) {
-    final list = filtered;
     return Row(
       children: [
-        Expanded(
-          child: Text(
-            "${list.length} places found",
-            style: TextStyle(color: muted, fontWeight: FontWeight.w800),
-          ),
+        Text(
+          "${filtered.length} results",
+          style: TextStyle(color: muted, fontWeight: FontWeight.w800),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(8),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withAlpha(16)),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.filter_alt_rounded, color: muted, size: 16),
-              const SizedBox(width: 6),
-              Text("Filter",
-                  style: TextStyle(color: muted, fontWeight: FontWeight.w900, fontSize: 12)),
-            ],
-          ),
+        const Spacer(),
+        Text(
+          "",
+          style: TextStyle(color: muted, fontWeight: FontWeight.w800),
         ),
       ],
     );
   }
 
-  Widget _grid() {
+  // ---------------- GRID 2 (with images) ----------------
+  Widget _grid(Color textMain, Color muted) {
     final list = filtered;
 
     if (list.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Column(
-          children: const [
-            Icon(Icons.search_off_rounded, color: UColors.darkMuted, size: 34),
-            SizedBox(height: 10),
-            Text("No results. Try different keyword or category.",
-                style: TextStyle(color: UColors.darkMuted, fontWeight: FontWeight.w700)),
+      return GlassCard(
+        child: Row(
+          children: [
+            Icon(Icons.search_off_rounded, color: muted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "No results. Try another keyword/category.",
+                style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+              ),
+            ),
           ],
         ),
       );
     }
 
     return GridView.builder(
-      itemCount: list.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      itemCount: list.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.78,
+        childAspectRatio: 0.86,
       ),
-      itemBuilder: (_, i) => _placeCard(list[i]),
-    );
-  }
+      itemBuilder: (_, i) {
+        final s = list[i];
 
-  Widget _placeCard(_Place p) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+        return GestureDetector(
+          onTap: () => _toast("Open: ${s.name}"),
+          child: GlassCard(
+            padding: const EdgeInsets.all(0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // IMAGE
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: SizedBox(
+                    height: 110,
+                    width: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          s.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: s.accent.withAlpha(18),
+                            child: Icon(Icons.image_not_supported_rounded, color: muted),
+                          ),
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              color: s.accent.withAlpha(14),
+                              alignment: Alignment.center,
+                              child: const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            );
+                          },
+                        ),
 
-    return GestureDetector(
-      onTap: () => _go(p.routeName),
-      // FIX: Replaced GlassCard with Container to prevent "Not Responding" due to excessive BackdropFilters
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B).withOpacity(0.9) : Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withAlpha(16)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // image
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // FIX: Added cacheWidth to reduce memory usage and decoding time
-                    // Reduce cacheWidth even more for very low-end devices
-                    Image.network(
-                      p.imageUrl, 
-                      fit: BoxFit.cover, 
-                      cacheWidth: 400,
-                      errorBuilder: (c, e, s) => Container(color: Colors.grey[900], child: const Icon(Icons.broken_image, color: Colors.white54)),
-                    ),
-                    // top overlay
-                    Positioned(
-                      left: 10,
-                      top: 10,
-                      child: _pill(
-                        p.openNow ? "Open" : "Closed",
-                        p.openNow ? UColors.success : UColors.danger,
-                      ),
-                    ),
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: _pill(
-                        p.category,
-                        Colors.black.withAlpha(200),
-                        fg: Colors.white,
-                      ),
-                    ),
-                    // bottom fade
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        height: 48,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Color(0xCC000000),
-                              Color(0x00000000),
-                            ],
+                        // TOP CHIP (CAT)
+                        Positioned(
+                          left: 10,
+                          top: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.90),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(color: s.accent, shape: BoxShape.circle),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  s.cat,
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
 
-            // info
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+                // CONTENT
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on_rounded, color: muted, size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          p.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: muted,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // FIX: Removed the extra "Open Now" tag to prevent Overflow
-                  Row(
-                    children: [
-                      Icon(Icons.star_rounded, color: UColors.gold, size: 16),
-                      const SizedBox(width: 4),
                       Text(
-                        p.rating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                        ),
+                        s.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
                       ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(8),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.white.withAlpha(14)),
-                        ),
-                        child: Text(
-                          "${p.distanceKm.toStringAsFixed(1)} km",
-                          style: TextStyle(
-                            color: muted,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 11,
+                      const SizedBox(height: 6),
+                      Text(
+                        "${s.loc} • ${s.eta} min",
+                        style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.star_rounded, color: UColors.gold, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            s.rating.toStringAsFixed(1),
+                            style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
                           ),
-                        ),
+                          const Spacer(),
+                          Icon(Icons.chevron_right_rounded, color: muted),
+                        ],
                       ),
                     ],
-                  )
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _pill(String text, Color bg, {Color fg = Colors.black}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(70),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: fg,
-          fontWeight: FontWeight.w900,
-          fontSize: 10,
-          letterSpacing: 0.2,
-        ),
-      ),
-    );
-  }
+  // ================== FLOATING PILL NAV (NOT TRANSPARENT) ==================
 
-  void _go(String route) {
-    try {
-      Navigator.pushNamed(context, route);
-    } catch (_) {
-      _toast("Route $route not found");
-    }
-  }
-
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? UColors.darkGlass
-            : UColors.lightGlass,
-      ),
-    );
-  }
 }
 
-class _Place {
-  final String title;
-  final String subtitle;
-  final String category;
-  final double rating;
-  final double distanceKm;
-  final bool openNow;
-  final String imageUrl;
-  final String routeName;
+// ================== MODELS ==================
 
-  const _Place({
-    required this.title,
-    required this.subtitle,
-    required this.category,
+class _MenuItem {
+  final String id;
+  final String name;
+  final double price;
+  const _MenuItem({required this.id, required this.name, required this.price});
+}
+
+class _Shop {
+  final String id;
+  final String name;
+  final String cat; // "Mart" / "Cafe" / etc
+  final String loc; // "Central" / "Mahallah" / "Kulliyyah"
+  final int eta;
+  final double rating;
+  final Color accent;
+  final String imageUrl;
+  final List<_MenuItem> menu;
+
+  const _Shop({
+    required this.id,
+    required this.name,
+    required this.cat,
+    required this.loc,
+    required this.eta,
     required this.rating,
-    required this.distanceKm,
-    required this.openNow,
+    required this.accent,
     required this.imageUrl,
-    required this.routeName,
+    required this.menu,
   });
 }

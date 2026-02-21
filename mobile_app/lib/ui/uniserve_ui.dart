@@ -337,7 +337,6 @@ class PrimaryButton extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
               Icon(icon, color: fg, size: 18),
@@ -389,6 +388,238 @@ class UText extends StatelessWidget {
         fontSize: size,
         fontWeight: weight,
         color: color,
+      ),
+    );
+  }
+}
+
+
+class UniservePillNav extends StatelessWidget {
+  /// Index mapping:
+  /// 0 Home, 1 Explore, 2 Messages, 3 Market, 4 Profile
+  final int index;
+
+  const UniservePillNav({super.key, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+
+    final glassBg = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.white.withValues(alpha: 0.66);
+
+    final glassStroke = isDark
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: 0.35);
+
+    final activeBg = isDark
+        ? Colors.white.withValues(alpha: 0.13)
+        : Colors.white.withValues(alpha: 0.88);
+
+    final activeStroke = isDark
+        ? Colors.white.withValues(alpha: 0.18)
+        : Colors.white.withValues(alpha: 0.45);
+
+    const navH = 66.0;
+
+    void go(int i) {
+      if (index == i) return;
+
+      final nav = Navigator.of(context, rootNavigator: true);
+
+      const routes = <String>[
+        '/home',
+        '/explore',
+        '/chat-inbox',
+        '/marketplace',
+        '/profile',
+      ];
+
+      if (i == 0) {
+        nav.pushNamedAndRemoveUntil('/home', (r) => false);
+        return;
+      }
+
+      nav.pushReplacementNamed(routes[i]);
+    }
+
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            const maxW = 430.0;
+            final w = (c.maxWidth - 32).clamp(300.0, maxW);
+
+            return SizedBox(
+              width: w,
+              height: navH,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: glassBg,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: glassStroke),
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 22,
+                          offset: const Offset(0, 12),
+                          color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Row(
+                      children: [
+                        _pillTab(
+                          index: index,
+                          i: 0,
+                          icon: Icons.home_rounded,
+                          label: 'Home',
+                          muted: muted,
+                          activeBg: activeBg,
+                          activeStroke: activeStroke,
+                          onTap: () => go(0),
+                        ),
+                        _pillTab(
+                          index: index,
+                          i: 1,
+                          icon: Icons.explore_rounded,
+                          label: 'Explore',
+                          muted: muted,
+                          activeBg: activeBg,
+                          activeStroke: activeStroke,
+                          onTap: () => go(1),
+                        ),
+                        _pillTab(
+                          index: index,
+                          i: 2,
+                          icon: Icons.chat_bubble_rounded,
+                          label: 'Messages',
+                          muted: muted,
+                          activeBg: activeBg,
+                          activeStroke: activeStroke,
+                          onTap: () => go(2),
+                        ),
+                        _pillTab(
+                          index: index,
+                          i: 3,
+                          icon: Icons.storefront_rounded,
+                          label: 'Market',
+                          muted: muted,
+                          activeBg: activeBg,
+                          activeStroke: activeStroke,
+                          onTap: () => go(3),
+                        ),
+                        _pillTab(
+                          index: index,
+                          i: 4,
+                          icon: Icons.person_rounded,
+                          label: 'Profile',
+                          muted: muted,
+                          activeBg: activeBg,
+                          activeStroke: activeStroke,
+                          onTap: () => go(4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _pillTab({
+    required int index,
+    required int i,
+    required IconData icon,
+    required String label,
+    required Color muted,
+    required Color activeBg,
+    required Color activeStroke,
+    required VoidCallback onTap,
+  }) {
+    final active = index == i;
+    const activeBlue = Color(0xFF2563EB);
+
+    // ✅ flex bagi ruang lebih pada active tab (supaya "Messages" tak jadi "M...")
+    final flex = active ? 3 : 2;
+
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              height: 54,
+              decoration: BoxDecoration(
+                color: active ? activeBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                border: active ? Border.all(color: activeStroke) : null,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active ? Colors.white.withValues(alpha: 0.95) : Colors.transparent,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      icon,
+                      size: 22,
+                      color: active ? activeBlue : muted,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+
+                  // ✅ auto scale down (tak jadi ellipsis)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: active ? activeBlue : muted,
+                          fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+                          fontSize: 11,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

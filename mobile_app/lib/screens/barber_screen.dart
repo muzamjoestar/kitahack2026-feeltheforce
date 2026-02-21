@@ -1,7 +1,11 @@
-
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import '../ui/uniserve_ui.dart';
+import 'package:universee/ui/premium_widgets.dart';
 import '../theme/colors.dart';
+import '../ui/uniserve_ui.dart';
+
+enum BarberReqStatus { searching, accepted, waitingMeetLocation, meetLocationSet, cancelled, completed }
 
 class BarberScreen extends StatefulWidget {
   const BarberScreen({super.key});
@@ -11,937 +15,651 @@ class BarberScreen extends StatefulWidget {
 }
 
 class _BarberScreenState extends State<BarberScreen> {
-  // --- Controllers ---
-  final nameCtrl = TextEditingController();
-  final phoneCtrl = TextEditingController();
-  final locationCtrl = TextEditingController(text: "Mahallah Aminah (UIA)");
-
-  // --- Date/Time Booking ---
-  DateTime? selectedDate;
-  String selectedTime = "";
-
-  // --- Barber + Service ---
-  int selectedBarber = 0;
-  String selectedService = "Classic Cut";
-  String aiStyle = "Clean Fade";
-
-  // --- Queue Live (per barber) ---
-  final Map<int, int> barberQueue = {0: 7, 1: 10, 2: 5};
-  final Map<int, int> barberAvg = {0: 11, 1: 14, 2: 9};
-
-  // --- Local bookings (mock DB) ---
-  final List<_Booking> upcoming = [];
-
-  final List<_Barber> barbers = const [
-    _Barber("Khairul Gunteng", "Fast hands • Clean fade", 4.9, 1543),
-    _Barber("Abang Zubair", "Detail king • Beard pro", 4.8, 987),
-    _Barber("Bro Halimah", "Student fav • Light touch", 4.7, 764),
-  ];
-
-  final List<String> timeSlots = const [
-    "10:00 AM",
-    "10:30 AM",
-    "11:00 AM",
-    "11:30 AM",
-    "12:00 PM",
-    "12:30 PM",
-    "2:00 PM",
-    "2:30 PM",
-    "3:00 PM",
-    "3:30 PM",
-    "4:00 PM",
-    "4:30 PM",
-    "5:00 PM",
-    "5:30 PM",
-    "6:00 PM",
-    "6:30 PM",
-  ];
-
-  final List<String> aiStyles = const [
-    "Clean Fade",
-    "Mid Fade + Texture",
-    "Korean Two Block",
-    "Buzz Cut Clean",
-    "Slick Back",
-    "Curly Taper",
-    "Side Part Pro",
-  ];
-
-  // --- Add-ons (optional) ---
-  bool addBeardTrim = false;
-  bool addWash = false;
-
-  // --- Helpers ---
-  void _toast(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(milliseconds: 1500)),
-    );
-  }
-
-  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
-
-  Color get _textMain => _isDark ? Colors.white : const Color(0xFF0F172A);
-  Color get _muted => _isDark ? Colors.white.withAlpha(180) : const Color(0xFF475569);
-
-  String _dateKey(DateTime d) => "${d.year}-${d.month.toString().padLeft(2, "0")}-${d.day.toString().padLeft(2, "0")}";
-
-  // RULE: same BARBER + same DATE + same TIME => tak boleh
-  bool _isSlotTaken({required int barberIndex, required DateTime date, required String time}) {
-    final dk = _dateKey(date);
-    return upcoming.any((b) => b.barberIndex == barberIndex && b.dateKey == dk && b.time == time);
-  }
-
-  void _confirmBooking() {
-    if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty) {
-      _toast("Please fill name & phone.");
-      return;
-    }
-    if (selectedDate == null || selectedTime.isEmpty) {
-      _toast("Pick date & time first.");
-      return;
-    }
-
-    final dk = _dateKey(selectedDate!);
-
-    // block collision for same barber + date + time
-    if (_isSlotTaken(barberIndex: selectedBarber, date: selectedDate!, time: selectedTime)) {
-      _toast("Slot taken for ${barbers[selectedBarber].name}. Pick another time.");
-      return;
-    }
-
-    setState(() {
-      upcoming.insert(
-        0,
-        _Booking(
-          name: nameCtrl.text.trim(),
-          phone: phoneCtrl.text.trim(),
-          barberIndex: selectedBarber,
-          service: selectedService,
-          aiStyle: aiStyle,
-          dateKey: dk,
-          time: selectedTime,
-          addBeardTrim: addBeardTrim,
-          addWash: addWash,
-        ),
-      );
-    });
-
-    _toast("Booked: ${barbers[selectedBarber].name} • $selectedTime");
-  }
+  final _noteC = TextEditingController();
+  DateTime _date = DateTime.now().add(const Duration(hours: 2));
+  String _service = 'Haircut';
+  String _preferred = 'Any barber';
 
   @override
   void dispose() {
-    nameCtrl.dispose();
-    phoneCtrl.dispose();
-    locationCtrl.dispose();
+    _noteC.dispose();
     super.dispose();
+  }
+
+  void _pickDateTime() async {
+    final d = await showDatePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+      initialDate: _date,
+    );
+    if (d == null) return;
+
+    // ignore: use_build_context_synchronously
+    final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_date));
+    if (t == null) return;
+
+    setState(() {
+      _date = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+    });
+  }
+
+  void _submit() {
+    final id = 'bb_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
+    final req = _BarberRequest(
+      id: id,
+      service: _service,
+      preferred: _preferred,
+      dateTime: _date,
+      notes: _noteC.text.trim(),
+      price: _service == 'Haircut' ? 12 : (_service == 'Beard' ? 8 : 18),
+      status: BarberReqStatus.searching,
+      barberName: null,
+      meetLocation: null,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => BarberFlowScreen(request: req)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final muted = _muted;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PremiumScaffold(
-      title: "Barber Premium",
-      actions: const [],
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _heroHeader(muted),
-          const SizedBox(height: 16),
-
-          _liveQueueCard(muted),
-          const SizedBox(height: 16),
-
-          _stepTitle("1. CHOOSE BARBER"),
-          const SizedBox(height: 10),
-          _barberScroller(),
-          const SizedBox(height: 18),
-
-          _stepTitle("2. SERVICE"),
-          const SizedBox(height: 10),
-          _servicePicker(muted),
-          const SizedBox(height: 18),
-
-          _stepTitle("3. DATE & TIME (REQUIRED)"),
-          const SizedBox(height: 10),
-          _datePickerCard(muted),
-          const SizedBox(height: 10),
-          _timeSlotGrid(muted),
-          const SizedBox(height: 18),
-
-          _stepTitle("4. AI STYLE + PHOTO"),
-          const SizedBox(height: 10),
-          _aiStylePicker(muted),
-          const SizedBox(height: 10),
-          _uploadCard(muted),
-          const SizedBox(height: 14),
-          _previewCard(muted),
-          const SizedBox(height: 18),
-
-          _stepTitle("5. ADD-ONS (OPTIONAL)"),
-          const SizedBox(height: 10),
-          _addonsCard(muted),
-          const SizedBox(height: 18),
-
-          _stepTitle("6. YOUR DETAILS"),
-          const SizedBox(height: 10),
-          _detailsCard(muted),
-          const SizedBox(height: 18),
-
-          _confirmButton(),
-          const SizedBox(height: 18),
-
-          if (upcoming.isNotEmpty) ...[
-            _stepTitle("UPCOMING BOOKINGS"),
-            const SizedBox(height: 10),
-            _upcomingList(muted),
+      title: 'Barber',
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const PremiumSectionHeader(
+              title: 'Book a barber',
+              subtitle: 'Lepas book → cari barber → barber accept → barber set lokasi.',
+            ),
+            const SizedBox(height: 14),
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SelectRow(
+                    label: 'Service',
+                    value: _service,
+                    items: const ['Haircut', 'Beard', 'Haircut + Beard'],
+                    onChanged: (v) => setState(() => _service = v),
+                    icon: Icons.cut_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  _SelectRow(
+                    label: 'Preferred barber',
+                    value: _preferred,
+                    items: const ['Any barber', 'Zubair', 'Abu', 'Aiman', 'Hakim'],
+                    onChanged: (v) => setState(() => _preferred = v),
+                    icon: Icons.person_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: _pickDateTime,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.10),
+                        ),
+                        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.schedule_rounded, color: UColors.teal.withValues(alpha: 0.95)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Time: ${_date.toString().substring(0, 16)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : Colors.black,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.chevron_right_rounded,
+                              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.65)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  PremiumField(
+                    label: 'Notes (optional)',
+                    hint: 'Contoh: rambut pendek, no. bilik, dll.',
+                    controller: _noteC,
+                    icon: Icons.sticky_note_2_rounded,
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: UColors.gold.withValues(alpha: 0.14),
+                      border: Border.all(color: UColors.gold.withValues(alpha: 0.30)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.payments_rounded, color: UColors.gold),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Estimated: RM ${(_service == 'Haircut' ? 12 : (_service == 'Beard' ? 8 : 18)).toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  PrimaryButton(
+                    text: 'Confirm booking',
+                    onTap: _submit,
+                    icon: Icons.check_rounded,
+                  ),
+                ],
+              ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
+}
 
-  Widget _heroHeader(Color muted) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: _isDark
-              ? [const Color(0xFF0B1220), const Color(0xFF111827)]
-              : [Colors.white, const Color(0xFFF8FAFC)],
+class BarberFlowScreen extends StatefulWidget {
+  final _BarberRequest request;
+  const BarberFlowScreen({super.key, required this.request});
+
+  @override
+  createState() => _BarberFlowScreenState();
+}
+
+class _BarberFlowScreenState extends State<BarberFlowScreen> {
+  late _BarberRequest _r;
+  Timer? _t1;
+  Timer? _t2;
+
+  @override
+  void initState() {
+    super.initState();
+    _r = widget.request;
+
+    // simulate: accept + set location (replace with backend realtime nanti)
+    _t1 = Timer(const Duration(seconds: 6), () {
+      if (!mounted || _r.status != BarberReqStatus.searching) return;
+      setState(() {
+        _r = _r.copyWith(
+          status: BarberReqStatus.accepted,
+          barberName: _pickBarber(),
+        );
+      });
+
+      _t2 = Timer(const Duration(seconds: 6), () {
+        if (!mounted || _r.status != BarberReqStatus.accepted) return;
+        setState(() {
+          _r = _r.copyWith(
+            status: BarberReqStatus.meetLocationSet,
+            meetLocation: '${_r.barberName} • Block D Dorm 3.2',
+          );
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _t1?.cancel();
+    _t2?.cancel();
+    super.dispose();
+  }
+
+  String _pickBarber() {
+    if (_r.preferred != 'Any barber') return _r.preferred;
+    const list = ['Zubair', 'Abu', 'Aiman', 'Hakim'];
+    return list[Random().nextInt(list.length)];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final steps = const [
+      'Searching',
+      'Accepted',
+      'Meet location',
+      'Done',
+    ];
+
+    int idx() {
+      switch (_r.status) {
+        case BarberReqStatus.searching:
+          return 0;
+        case BarberReqStatus.accepted:
+        case BarberReqStatus.waitingMeetLocation:
+          return 1;
+        case BarberReqStatus.meetLocationSet:
+          return 2;
+        case BarberReqStatus.completed:
+          return 3;
+        case BarberReqStatus.cancelled:
+          return 0;
+      }
+    }
+
+    final canCancel = _r.status == BarberReqStatus.searching;
+    final canChat = _r.status == BarberReqStatus.accepted || _r.status == BarberReqStatus.meetLocationSet;
+
+    return PremiumScaffold(
+      title: 'Barber booking',
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'RM ${_r.price.toStringAsFixed(2)} • ${_r.service}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Time: ${_r.dateTime.toString().substring(0, 16)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black.withValues(alpha: 0.65),
+                    ),
+                  ),
+                  if (_r.notes.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _r.notes,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white.withValues(alpha: 0.70) : Colors.black.withValues(alpha: 0.60),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            PremiumStepper(steps: steps, activeIndex: idx()),
+            const SizedBox(height: 12),
+            _barberStateCard(_r),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: canChat
+                        ? () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => _ChatLite(title: 'Chat barber')),
+                            )
+                        : null,
+                    icon: const Icon(Icons.chat_rounded),
+                    label: const Text('Chat'),
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: canCancel
+                        ? () => setState(() => _r = _r.copyWith(status: BarberReqStatus.cancelled))
+                        : null,
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Cancel'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Backend nanti: barber accept & set lokasi akan update order ni secara realtime (bukan timer).',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white.withValues(alpha: 0.60) : Colors.black.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
         ),
-        border: Border.all(
-          color: _isDark ? Colors.white.withAlpha(16) : const Color(0xFFE2E8F0),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(_isDark ? 80 : 18),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          )
-        ],
       ),
+    );
+  }
+}
+
+Widget _barberStateCard(_BarberRequest r) {
+  Color accent;
+  IconData icon;
+  String title;
+  String sub;
+  Widget? trailing;
+
+  switch (r.status) {
+    case BarberReqStatus.searching:
+      accent = UColors.teal;
+      icon = Icons.search_rounded;
+      title = 'Finding barber…';
+      sub = 'Kami tengah cari barber available ikut masa booking.';
+      trailing = const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2));
+      break;
+    case BarberReqStatus.accepted:
+      accent = UColors.success;
+      icon = Icons.verified_rounded;
+      title = 'Accepted by ${r.barberName}';
+      sub = 'Barber akan set lokasi meetup sekejap lagi.';
+      break;
+    case BarberReqStatus.meetLocationSet:
+      accent = UColors.info;
+      icon = Icons.location_on_rounded;
+      title = 'Meet location set ✅';
+      sub = r.meetLocation ?? '-';
+      break;
+    case BarberReqStatus.waitingMeetLocation:
+      accent = UColors.warning;
+      icon = Icons.schedule_rounded;
+      title = 'Waiting location';
+      sub = 'Barber belum set lokasi.';
+      break;
+    case BarberReqStatus.cancelled:
+      accent = UColors.danger;
+      icon = Icons.cancel_rounded;
+      title = 'Cancelled';
+      sub = 'Booking dibatalkan.';
+      break;
+    case BarberReqStatus.completed:
+      accent = UColors.success;
+      icon = Icons.check_circle_rounded;
+      title = 'Completed';
+      sub = 'Selesai.';
+      break;
+  }
+
+  return _StateCard(title: title, subtitle: sub, icon: icon, accent: accent, trailing: trailing);
+}
+
+class _StateCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accent;
+  final Widget? trailing;
+
+  const _StateCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accent,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GlassCard(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              color: _isDark ? Colors.white.withAlpha(8) : const Color(0xFFEFF6FF),
-              border: Border.all(
-                color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFBFDBFE),
-              ),
+              color: accent.withValues(alpha: 0.18),
+              border: Border.all(color: accent.withValues(alpha: 0.35)),
             ),
-            child: const Icon(Icons.content_cut_rounded, color: UColors.gold),
+            child: Icon(icon, color: accent),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Look sharp. Feel confident.",
-                    style: TextStyle(
-                      color: _textMain,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    )),
-                const SizedBox(height: 4),
-                Text("Queue live per barber • AI style • booking clean.",
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white.withValues(alpha: 0.72) : Colors.black.withValues(alpha: 0.62),
+                  ),
+                ),
               ],
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 10),
+            Padding(padding: const EdgeInsets.only(top: 6), child: trailing!),
+          ],
         ],
       ),
     );
   }
+}
 
-  Widget _liveQueueCard(Color muted) {
+class _SelectRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final List<String> items;
+  final ValueChanged<String> onChanged;
+  final IconData icon;
+
+  const _SelectRow({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.10)),
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
       ),
       child: Row(
         children: [
-          const Icon(Icons.query_stats_rounded, color: UColors.teal),
+          Icon(icon, color: UColors.teal.withValues(alpha: 0.95)),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              "Live queue updates (mock) — pick a barber to see queue & avg.",
-              style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: value,
+                items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                onChanged: (v) => v == null ? null : onChanged(v),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _stepTitle(String t) {
-    return Text(
-      t,
-      style: TextStyle(
-        color: _isDark ? Colors.white.withAlpha(230) : const Color(0xFF2563EB),
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.6,
-      ),
-    );
+class _ChatLite extends StatefulWidget {
+  final String title;
+  const _ChatLite({required this.title});
+
+  @override
+  State<_ChatLite> createState() => _ChatLiteState();
+}
+
+class _ChatLiteState extends State<_ChatLite> {
+  final _c = TextEditingController();
+  final List<_Msg> _msgs = [_Msg(false, 'Hi! Saya dah accept. Saya set lokasi meetup sekejap lagi ya.')];
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
   }
 
-  Widget _barberScroller() {
-    return SizedBox(
-      height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: barbers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final b = barbers[i];
-          final active = i == selectedBarber;
-          final q = barberQueue[i] ?? 0;
-          final a = barberAvg[i] ?? 12;
+  void _send() {
+    final t = _c.text.trim();
+    if (t.isEmpty) return;
+    setState(() => _msgs.add(_Msg(true, t)));
+    _c.clear();
+  }
 
-          return GestureDetector(
-            onTap: () => setState(() => selectedBarber = i),
-            child: Container(
-              width: 190,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: (() {
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
-                  if (!isDark && active) {
-                    return const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF1E40AF), Color(0xFF2563EB)],
-                    );
-                  }
-                  return null;
-                })(),
-                color: (() {
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
-                  if (isDark) {
-                    return active ? UColors.gold.withAlpha(18) : Colors.white.withAlpha(6);
-                  }
-                  return active ? null : Colors.white;
-                })(),
-                border: Border.all(
-                  color: (() {
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
-                    if (isDark) return active ? UColors.gold : Colors.white.withAlpha(18);
-                    return active ? Colors.white.withAlpha(55) : const Color(0xFFE2E8F0);
-                  })(),
-                ),
-                boxShadow: (() {
-                  if (!active) return null;
-                  final isDark = Theme.of(context).brightness == Brightness.dark;
-                  return [
-                    BoxShadow(
-                      color: isDark ? Colors.black : const Color(0xFF1D4ED8).withAlpha(70),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
-                    )
-                  ];
-                })(),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: (() {
-                            final isDark = Theme.of(context).brightness == Brightness.dark;
-                            if (active) return isDark ? UColors.gold : const Color(0xFF1E40AF);
-                            return isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-                          })(),
-                        ),
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: (() {
-                            final isDark = Theme.of(context).brightness == Brightness.dark;
-                            if (active) return isDark ? Colors.black : Colors.white;
-                            return isDark ? Colors.white : const Color(0xFF334155);
-                          })(),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          b.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: (() {
-                              final isDark = Theme.of(context).brightness == Brightness.dark;
-                              if (active && !isDark) return Colors.white;
-                              return Theme.of(context).colorScheme.onSurface;
-                            })(),
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    b.tagline,
-                    style: TextStyle(
-                      color: (() {
-                        final isDark = Theme.of(context).brightness == Brightness.dark;
-                        if (active) return Colors.white.withAlpha(210);
-                        return isDark ? Colors.white.withAlpha(170) : const Color(0xFF475569);
-                      })(),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-                  // mini queue badge (queue per barber)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    return PremiumScaffold(
+      title: widget.title,
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              itemCount: _msgs.length,
+              itemBuilder: (_, i) {
+                final m = _msgs[i];
+                final align = m.me ? Alignment.centerRight : Alignment.centerLeft;
+                final bg = m.me
+                    ? UColors.teal.withValues(alpha: isDark ? 0.28 : 0.18)
+                    : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06);
+
+                return Align(
+                  alignment: align,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    constraints: const BoxConstraints(maxWidth: 320),
                     decoration: BoxDecoration(
-                      color: (() {
-                        final isDark = Theme.of(context).brightness == Brightness.dark;
-                        if (active && !isDark) return Colors.white.withAlpha(34);
-                        return UColors.teal.withAlpha(isDark ? 24 : 18);
-                      })(),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: (() {
-                          final isDark = Theme.of(context).brightness == Brightness.dark;
-                          if (active && !isDark) return Colors.white.withAlpha(70);
-                          return UColors.teal.withAlpha(120);
-                        })(),
-                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      color: bg,
+                      border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08)),
                     ),
                     child: Text(
-                      "Queue: $q • Avg: ${a}m",
-                      style: TextStyle(
-                        color: (() {
-                          final isDark = Theme.of(context).brightness == Brightness.dark;
-                          if (active && !isDark) return Colors.white;
-                          return UColors.teal;
-                        })(),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                      ),
+                      m.text,
+                      style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black),
                     ),
                   ),
-
-                  const Spacer(),
-                  Row(
-                    children: [
-                      const Icon(Icons.star_rounded, color: UColors.gold, size: 18),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${b.rating}",
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "(${b.reviews} reviews)",
-                        style: TextStyle(
-                          color: (() {
-                            final isDark = Theme.of(context).brightness == Brightness.dark;
-                            if (active) return Colors.white.withAlpha(180);
-                            return isDark ? Colors.white.withAlpha(150) : const Color(0xFF64748B);
-                          })(),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      )
-                    ],
-                  )
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _servicePicker(Color muted) {
-    final services = const [
-      ("Classic Cut", "RM 15", Icons.content_cut_rounded),
-      ("Fade Pro", "RM 18", Icons.auto_fix_high_rounded),
-      ("Student Trim", "RM 12", Icons.school_rounded),
-      ("Premium Package", "RM 25", Icons.workspace_premium_rounded),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: services.map((s) {
-          final active = s.$1 == selectedService;
-          return GestureDetector(
-            onTap: () => setState(() => selectedService = s.$1),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: active ? UColors.gold : (_isDark ? Colors.white.withAlpha(8) : const Color(0xFFF1F5F9)),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: active ? UColors.gold : (_isDark ? Colors.white.withAlpha(12) : const Color(0xFFE2E8F0)),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    s.$3,
-                    size: 18,
-                    color: active ? Colors.black : (_isDark ? Colors.white.withAlpha(200) : const Color(0xFF334155)),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${s.$1} • ${s.$2}",
-                    style: TextStyle(
-                      color: active ? Colors.black : (_isDark ? Colors.white.withAlpha(220) : const Color(0xFF0F172A)),
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _datePickerCard(Color muted) {
-    final d = selectedDate;
-    final label = d == null ? "Pick a date" : "${d.day}/${d.month}/${d.year}";
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.calendar_month_rounded, color: _isDark ? Colors.white.withAlpha(210) : const Color(0xFF2563EB)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(color: _textMain, fontWeight: FontWeight.w900),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              final now = DateTime.now();
-              final picked = await showDatePicker(
-                context: context,
-                firstDate: now,
-                lastDate: now.add(const Duration(days: 30)),
-                initialDate: selectedDate ?? now,
-              );
-              if (picked != null) setState(() => selectedDate = picked);
-            },
-            child: Text(
-              "Select",
-              style: TextStyle(
-                color: _isDark ? Colors.white : const Color(0xFF2563EB),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _timeSlotGrid(Color muted) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Pick time slot",
-              style: TextStyle(
-                color: _textMain,
-                fontWeight: FontWeight.w900,
-              )),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: timeSlots.map((t) {
-              final active = t == selectedTime;
-              final disabled = selectedDate != null && _isSlotTaken(barberIndex: selectedBarber, date: selectedDate!, time: t);
-
-              return GestureDetector(
-                onTap: disabled ? null : () => setState(() => selectedTime = t),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: (() {
-                      if (disabled) return (_isDark ? Colors.white.withAlpha(6) : const Color(0xFFF1F5F9));
-                      if (active) return const Color(0xFF2563EB);
-                      return _isDark ? Colors.white.withAlpha(8) : const Color(0xFFF8FAFC);
-                    })(),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: (() {
-                        if (disabled) return (_isDark ? Colors.white.withAlpha(10) : const Color(0xFFE2E8F0));
-                        if (active) return Colors.white.withAlpha(_isDark ? 18 : 60);
-                        return _isDark ? Colors.white.withAlpha(12) : const Color(0xFFE2E8F0);
-                      })(),
-                    ),
-                  ),
-                  child: Text(
-                    disabled ? "$t (taken)" : t,
-                    style: TextStyle(
-                      color: (() {
-                        if (disabled) return (_isDark ? Colors.white.withAlpha(120) : const Color(0xFF94A3B8));
-                        if (active) return Colors.white;
-                        return _isDark ? Colors.white.withAlpha(220) : const Color(0xFF0F172A);
-                      })(),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _aiStylePicker(Color muted) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Choose AI style recommendation",
-              style: TextStyle(color: _textMain, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: aiStyles.map((s) {
-              final active = s == aiStyle;
-              return GestureDetector(
-                onTap: () => setState(() => aiStyle = s),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: active ? const Color(0xFF7C3AED) : (_isDark ? Colors.white.withAlpha(8) : const Color(0xFFF8FAFC)),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: active ? const Color(0xFF7C3AED) : (_isDark ? Colors.white.withAlpha(12) : const Color(0xFFE2E8F0)),
-                    ),
-                  ),
-                  child: Text(
-                    s,
-                    style: TextStyle(
-                      color: active ? Colors.white : (_isDark ? Colors.white.withAlpha(220) : const Color(0xFF0F172A)),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _uploadCard(Color muted) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: _isDark ? Colors.white.withAlpha(8) : const Color(0xFFEFF6FF),
-            ),
-            child: const Icon(Icons.add_a_photo_rounded, color: UColors.teal),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Upload Face Photo (optional)", style: TextStyle(color: _textMain, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
-                Text("Tap to simulate upload — later connect DB/storage",
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12)),
-              ],
-            ),
-          ),
-          FilledButton(
-            onPressed: () => _toast("Upload simulated (UI only)."),
-            style: FilledButton.styleFrom(backgroundColor: UColors.teal),
-            child: const Text("Upload", style: TextStyle(fontWeight: FontWeight.w900)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _previewCard(Color muted) {
-    final b = barbers[selectedBarber];
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? const Color(0xFF0B1220) : const Color(0xFF0B1220),
-        border: Border.all(color: Colors.white.withAlpha(16)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(colors: [UColors.teal, Color(0xFF22C55E)]),
-            ),
-            child: const Icon(Icons.face_retouching_natural_rounded, color: Colors.black),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text("AI Style Preview", style: TextStyle(color: Colors.white.withAlpha(200), fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text("Style: $aiStyle", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text("Barber: ${b.name}", style: TextStyle(color: Colors.white.withAlpha(190), fontWeight: FontWeight.w700, fontSize: 12)),
-              const SizedBox(height: 2),
-              Text("Face photo: ❌ Not uploaded", style: TextStyle(color: Colors.white.withAlpha(190), fontWeight: FontWeight.w700, fontSize: 12)),
-            ]),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white.withAlpha(10),
-              border: Border.all(color: Colors.white.withAlpha(18)),
+              border: Border(top: BorderSide(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08))),
             ),
-            child: const Text("SMART", style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900)),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _addonsCard(Color muted) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          _toggleRow(
-            title: "Beard Trim",
-            price: "+ RM 6",
-            value: addBeardTrim,
-            onChanged: (v) => setState(() => addBeardTrim = v),
-          ),
-          const Divider(height: 18),
-          _toggleRow(
-            title: "Hair Wash",
-            price: "+ RM 4",
-            value: addWash,
-            onChanged: (v) => setState(() => addWash = v),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _toggleRow({
-    required String title,
-    required String price,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(color: _textMain, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 2),
-            Text(price, style: TextStyle(color: _muted, fontWeight: FontWeight.w800)),
-          ]),
-        ),
-        Switch(value: value, onChanged: onChanged),
-      ],
-    );
-  }
-
-  Widget _detailsCard(Color muted) {
-    InputDecoration deco(String hint, IconData ic) => InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: _isDark ? Colors.white.withAlpha(120) : const Color(0xFF94A3B8)),
-          prefixIcon: Icon(ic, color: _isDark ? Colors.white.withAlpha(170) : const Color(0xFF2563EB)),
-          filled: true,
-          fillColor: _isDark ? Colors.white.withAlpha(8) : const Color(0xFFF8FAFC),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-        );
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: nameCtrl,
-            style: TextStyle(color: _textMain, fontWeight: FontWeight.w800),
-            decoration: deco("Full name", Icons.person_rounded),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: phoneCtrl,
-            keyboardType: TextInputType.phone,
-            style: TextStyle(color: _textMain, fontWeight: FontWeight.w800),
-            decoration: deco("Phone (WhatsApp)", Icons.call_rounded),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: locationCtrl,
-            style: TextStyle(color: _textMain, fontWeight: FontWeight.w800),
-            decoration: deco("Location", Icons.location_on_rounded),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _confirmButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: _confirmBooking,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF2563EB),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        child: const Text("Confirm Booking", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-      ),
-    );
-  }
-
-  Widget _upcomingList(Color muted) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: _isDark ? Colors.white.withAlpha(6) : Colors.white,
-        border: Border.all(color: _isDark ? Colors.white.withAlpha(14) : const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: upcoming.take(5).map((b) {
-          final barberName = barbers[b.barberIndex].name;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                const Icon(Icons.event_available_rounded, color: UColors.teal),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    "$barberName • ${b.service} • ${b.dateKey} • ${b.time}",
-                    style: TextStyle(color: _textMain, fontWeight: FontWeight.w900),
+                  child: TextField(
+                    controller: _c,
+                    decoration: InputDecoration(
+                      hintText: 'Type message…',
+                      filled: true,
+                      fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (_) => _send(),
                   ),
                 ),
+                const SizedBox(width: 10),
+                IconButton(onPressed: _send, icon: const Icon(Icons.send_rounded)),
               ],
             ),
-          );
-        }).toList(),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _Barber {
-  final String name;
-  final String tagline;
-  final double rating;
-  final int reviews;
-  const _Barber(this.name, this.tagline, this.rating, this.reviews);
+class _Msg {
+  final bool me;
+  final String text;
+  _Msg(this.me, this.text);
 }
 
-class _Booking {
-  final String name;
-  final String phone;
-  final int barberIndex;
+class _BarberRequest {
+  final String id;
   final String service;
-  final String aiStyle;
-  final String dateKey;
-  final String time;
-  final bool addBeardTrim;
-  final bool addWash;
+  final String preferred;
+  final DateTime dateTime;
+  final String notes;
+  final double price;
+  final BarberReqStatus status;
+  final String? barberName;
+  final String? meetLocation;
 
-  _Booking({
-    required this.name,
-    required this.phone,
-    required this.barberIndex,
+  _BarberRequest({
+    required this.id,
     required this.service,
-    required this.aiStyle,
-    required this.dateKey,
-    required this.time,
-    required this.addBeardTrim,
-    required this.addWash,
+    required this.preferred,
+    required this.dateTime,
+    required this.notes,
+    required this.price,
+    required this.status,
+    required this.barberName,
+    required this.meetLocation,
   });
+
+  _BarberRequest copyWith({
+    BarberReqStatus? status,
+    String? barberName,
+    String? meetLocation,
+  }) {
+    return _BarberRequest(
+      id: id,
+      service: service,
+      preferred: preferred,
+      dateTime: dateTime,
+      notes: notes,
+      price: price,
+      status: status ?? this.status,
+      barberName: barberName ?? this.barberName,
+      meetLocation: meetLocation ?? this.meetLocation,
+    );
+  }
 }

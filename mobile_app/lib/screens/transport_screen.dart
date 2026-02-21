@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -79,20 +80,64 @@ class _TransportScreenState extends State<TransportScreen> {
   ];
 
   final List<_Place> outsidePlaces = const [
-    _Place(name: 'LRT Gombak', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 10, max: 10),
-    _Place(name: 'KL East Mall', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 10, max: 10),
+    // UPDATED PRICE LIST 2025 (from UIA to destination; return uses same table)
+    // Notes (displayed elsewhere): prices exclude toll; heavy traffic/jammed may increase.
+
+    // Transit / Nearby
+    _Place(name: 'Bai Krapaw (Greenwood)', zone: 99, cat: 'Food', kind: _Kind.outside, min: 8, max: 10),
+    _Place(name: 'Kubur (Cemetery)', zone: 99, cat: 'Area', kind: _Kind.outside, min: 8, max: 10),
+    _Place(name: 'LRT Gombak / KL East', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 10, max: 10),
+    _Place(name: 'PV 2/6/8', zone: 99, cat: 'Area', kind: _Kind.outside, min: 10, max: 12),
     _Place(name: 'LRT Melati', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 12, max: 12),
     _Place(name: 'M3 Mall', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 12, max: 12),
-    _Place(name: 'Melawati Mall', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 14, max: 15),
+    _Place(name: 'SKEM Driving Batu 12', zone: 99, cat: 'Area', kind: _Kind.outside, min: 12, max: 13),
     _Place(name: 'Greenwood', zone: 99, cat: 'Area', kind: _Kind.outside, min: 12, max: 15),
     _Place(name: 'Idaman', zone: 99, cat: 'Area', kind: _Kind.outside, min: 13, max: 15),
+    _Place(name: 'Giant Batu Caves', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 14, max: 15),
+    _Place(name: 'Melawati Mall', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 14, max: 15),
+    _Place(name: 'Sri Gombak', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 15),
     _Place(name: 'Setapak', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 15),
     _Place(name: 'Wangsa Maju', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 15),
+    _Place(name: 'AEON BIG Wangsa Maju / Wangsa Walk Mall', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 15, max: 15),
+    _Place(name: 'Giant Taman Permata', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 15, max: 15),
+    _Place(name: 'KL Traders Square', zone: 99, cat: 'Area', kind: _Kind.outside, min: 15, max: 16),
+    _Place(name: 'McD BHP / McD Taman Melawati', zone: 99, cat: 'Food', kind: _Kind.outside, min: 12, max: 12),
     _Place(name: 'Zoo Negara', zone: 99, cat: 'Attraction', kind: _Kind.outside, min: 16, max: 17),
-    _Place(name: 'TBS', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 30, max: 40),
+
+    // KL / City
+    _Place(name: 'Taman Kepong', zone: 99, cat: 'Area', kind: _Kind.outside, min: 18, max: 20),
+    _Place(name: 'HKL / Chow Kit', zone: 99, cat: 'Hospital', kind: _Kind.outside, min: 20, max: 25),
+    _Place(name: 'PWTC', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 20, max: 25),
+    _Place(name: 'Pekeliling', zone: 99, cat: 'Area', kind: _Kind.outside, min: 20, max: 25),
+    _Place(name: 'Hospital Selayang', zone: 99, cat: 'Hospital', kind: _Kind.outside, min: 20, max: 25),
+    _Place(name: 'Suka Dessert', zone: 99, cat: 'Food', kind: _Kind.outside, min: 20, max: 25),
+    _Place(name: 'UTM / UTM Residensi', zone: 99, cat: 'University', kind: _Kind.outside, min: 22, max: 27),
+    _Place(name: 'National Library', zone: 99, cat: 'Attraction', kind: _Kind.outside, min: 22, max: 27),
+    _Place(name: 'Egyptian Embassy (Ampang)', zone: 99, cat: 'Area', kind: _Kind.outside, min: 22, max: 27),
+    _Place(name: 'Hentian Duta', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 25, max: 30),
     _Place(name: 'KLCC', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'Berjaya Times Square', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'Low Yat Plaza', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'TRX', zone: 99, cat: 'Area', kind: _Kind.outside, min: 25, max: 30),
     _Place(name: 'KL Sentral / NU Sentral', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'Bangsar', zone: 99, cat: 'Area', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'Hospital Ampang', zone: 99, cat: 'Hospital', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'Indonesian Embassy (Ampang)', zone: 99, cat: 'Area', kind: _Kind.outside, min: 25, max: 30),
+    _Place(name: 'University Malaya', zone: 99, cat: 'University', kind: _Kind.outside, min: 30, max: 40),
+    _Place(name: 'TBS', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 30, max: 40),
+    _Place(name: 'IKEA Damansara', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 35, max: 40),
+    _Place(name: 'One Utama', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 40, max: 50),
+    _Place(name: 'Subang Airport', zone: 99, cat: 'Airport', kind: _Kind.outside, min: 40, max: 50),
+    _Place(name: 'UPM Serdang', zone: 99, cat: 'University', kind: _Kind.outside, min: 40, max: 50),
+    _Place(name: 'Pavilion Bukit Jalil', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 50, max: 60),
+    _Place(name: 'Cyberjaya', zone: 99, cat: 'Area', kind: _Kind.outside, min: 55, max: 65),
+    _Place(name: 'i-City Shah Alam', zone: 99, cat: 'Attraction', kind: _Kind.outside, min: 55, max: 65),
+    _Place(name: 'Genting Highland Premium Outlet', zone: 99, cat: 'Mall', kind: _Kind.outside, min: 60, max: 70),
     _Place(name: 'KLIA 1/2', zone: 99, cat: 'Airport', kind: _Kind.outside, min: 90, max: 100),
+
+    // Extra
+    _Place(name: 'Titiwangsa', zone: 99, cat: 'Area', kind: _Kind.outside, min: 20, max: 25),
+    _Place(name: 'KTM Batu Caves', zone: 99, cat: 'Transit', kind: _Kind.outside, min: 15, max: 15),
   ];
 
   List<_Place> get allPlaces => [pickup, ...iiaPlaces, ...outsidePlaces];
@@ -612,8 +657,8 @@ class _TransportScreenState extends State<TransportScreen> {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: _sendOffer,
-                  icon: const Icon(Icons.local_offer_rounded),
+                  onPressed: _bookRide,
+                  icon: const Icon(Icons.local_taxi_rounded),
                   label: const Text("OFFER"),
                 ),
               ),
@@ -624,7 +669,33 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 
-  void _sendOffer() {
+  
+  void _bookRide() {
+    if (dropoff == null) {
+      _toast("Select your dropoff first.");
+      return;
+    }
+
+    // Optional offer: if user types RM, we can show it in the next screen.
+    final offer = int.tryParse(offerCtrl.text.trim());
+    final offerText = (offer != null && offer > 0) ? "RM $offer" : null;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FindingDriverScreen(
+          pickup: pickup,
+          dropoff: dropoff!,
+          stops: List<_Place>.from(stops),
+          rideType: ride,
+          offerText: offerText,
+        ),
+      ),
+    );
+  }
+
+// ignore: unused_element
+void _sendOffer() {
     if (dropoff == null) {
       _toast("Choose dropoff first.");
       return;
@@ -678,6 +749,528 @@ class _TransportScreenState extends State<TransportScreen> {
     );
   }
 }
+
+
+// ====== Finding Driver (Grab-like) ======
+class FindingDriverScreen extends StatefulWidget {
+  final _Place pickup;
+  final _Place dropoff;
+  final List<_Place> stops;
+  final String rideType; // sedan / muslimah / mpv / sis_mpv
+  final String? offerText;
+
+   const FindingDriverScreen({
+    super.key,
+    required this.pickup,
+    required this.dropoff,
+    required this.stops,
+    required this.rideType,
+    this.offerText,
+  });
+
+  @override
+  State<FindingDriverScreen> createState() => _FindingDriverScreenState();
+}
+
+class _FindingDriverScreenState extends State<FindingDriverScreen> {
+  Timer? _timer;
+  int _secondsLeft = 25; // show countdown like Grab
+  bool _found = false;
+
+  // Demo driver data (frontend only)
+  final String _driverName = "Aina";
+  final String _car = "Perodua Bezza • Silver";
+  final String _plate = "WXX 1287";
+  final double _rating = 4.9;
+  final int _etaMin = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      setState(() {
+        _secondsLeft = (_secondsLeft - 1).clamp(0, 999);
+        // Demo: driver found at 8s left
+        if (!_found && _secondsLeft <= 17) _found = true;
+        if (_secondsLeft == 0) t.cancel();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _cancelOrder() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Cancel ride?"),
+          content: const Text("You can request again anytime."),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Keep searching")),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Cancel ride")),
+          ],
+        );
+      },
+    );
+
+    if (ok == true && mounted) {
+      _timer?.cancel();
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ride cancelled"), behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
+  Color _accent(BuildContext context) {
+    // Soft pink accent for muslimah ride
+    if (widget.rideType == "muslimah" || widget.rideType == "sis_mpv") {
+      return const Color(0xFFFF4DA6);
+    }
+    return Theme.of(context).colorScheme.primary;
+  }
+
+  String _rideLabel() {
+    switch (widget.rideType) {
+      case "muslimah":
+        return "Muslimah Ride";
+      case "mpv":
+        return "MPV";
+      case "sis_mpv":
+        return "SIS MPV (Muslimah)";
+      default:
+        return "Sedan";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF050A12) : const Color(0xFFF6F7FB);
+    final card = isDark ? const Color(0xFF0B1220) : Colors.white;
+    final border = isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12);
+    final textMain = isDark ? Colors.white : const Color(0xFF0B1220);
+    final muted = isDark ? Colors.white.withAlpha(170) : Colors.black.withAlpha(130);
+    final accent = _accent(context);
+
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        elevation: 0,
+        title: Text(_found ? "Driver found" : "Finding driver…", style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: textMain),
+          onPressed: _cancelOrder, // behave like Grab: back prompts cancel
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: _cancelOrder,
+            icon: Icon(Icons.close_rounded, color: accent),
+            label: Text("Cancel", style: TextStyle(color: accent, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Map placeholder
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              child: Container(
+                height: 220,
+                decoration: BoxDecoration(
+                  color: card,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: border),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                accent.withAlpha(isDark ? 40 : 28),
+                                Colors.transparent,
+                                accent.withAlpha(isDark ? 18 : 10),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 14,
+                      top: 14,
+                      right: 14,
+                      child: Row(
+                        children: [
+                          _pill(textMain: textMain, border: border, card: card, label: _rideLabel()),
+                          const SizedBox(width: 8),
+                          if (widget.offerText != null)
+                            _pill(textMain: textMain, border: border, card: card, label: "Offer ${widget.offerText}"),
+                        ],
+                      ),
+                    ),
+                    Center(
+                      child: Icon(Icons.map_rounded, size: 54, color: muted.withAlpha(130)),
+                    ),
+                    Positioned(
+                      left: 14,
+                      right: 14,
+                      bottom: 14,
+                      child: _routeMiniCard(
+                        card: card,
+                        border: border,
+                        textMain: textMain,
+                        muted: muted,
+                        pickup: widget.pickup.name,
+                        dropoff: widget.dropoff.name,
+                        stops: widget.stops.map((e) => e.name).toList(),
+                        accent: accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Status area
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: card,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _found ? "Matched! Driver is on the way" : "Looking for nearby drivers",
+                              style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 16),
+                            ),
+                          ),
+                          _countdownChip(
+                            secondsLeft: _secondsLeft,
+                            accent: accent,
+                            card: card,
+                            border: border,
+                            textMain: textMain,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _steps(accent: accent, muted: muted, textMain: textMain, found: _found),
+                      const SizedBox(height: 14),
+
+                      if (!_found) ...[
+                        _searchingRow(muted: muted, accent: accent),
+                        const Spacer(),
+                        Text(
+                          "Tip: If it’s taking long, try changing ride type or pickup point.",
+                          style: TextStyle(color: muted, fontWeight: FontWeight.w600),
+                        ),
+                      ] else ...[
+                        _driverCard(
+                          card: card,
+                          border: border,
+                          textMain: textMain,
+                          muted: muted,
+                          accent: accent,
+                          name: _driverName,
+                          car: _car,
+                          plate: _plate,
+                          rating: _rating,
+                          etaMin: _etaMin,
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Chat (demo)"), behavior: SnackBarBehavior.floating),
+                                  );
+                                },
+                                icon: const Icon(Icons.chat_bubble_rounded),
+                                label: const Text("Chat driver"),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Calling driver… (demo)"), behavior: SnackBarBehavior.floating),
+                                  );
+                                },
+                                icon: const Icon(Icons.call_rounded),
+                                label: const Text("Call"),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pill({required Color textMain, required Color border, required Color card, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Text(label, style: TextStyle(color: textMain, fontWeight: FontWeight.w800, fontSize: 12)),
+    );
+  }
+
+  Widget _countdownChip({
+    required int secondsLeft,
+    required Color accent,
+    required Color card,
+    required Color border,
+    required Color textMain,
+  }) {
+    final mm = (secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final ss = (secondsLeft % 60).toString().padLeft(2, '0');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: accent.withAlpha(18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: accent.withAlpha(60)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_rounded, size: 16, color: accent),
+          const SizedBox(width: 6),
+          Text("$mm:$ss", style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+
+  Widget _steps({
+    required Color accent,
+    required Color muted,
+    required Color textMain,
+    required bool found,
+  }) {
+    return Column(
+      children: [
+        _stepRow(done: true, accent: accent, muted: muted, textMain: textMain, title: "Request sent", subtitle: "Searching in your area"),
+        const SizedBox(height: 10),
+        _stepRow(done: found, accent: accent, muted: muted, textMain: textMain, title: "Driver matched", subtitle: found ? "Driver accepted your request" : "Waiting for a driver"),
+        const SizedBox(height: 10),
+        _stepRow(done: false, accent: accent, muted: muted, textMain: textMain, title: "Pick up", subtitle: "Driver arrives at pickup point"),
+      ],
+    );
+  }
+
+  Widget _stepRow({
+    required bool done,
+    required Color accent,
+    required Color muted,
+    required Color textMain,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: done ? accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: done ? accent : muted.withAlpha(60)),
+          ),
+          child: Icon(
+            done ? Icons.check_rounded : Icons.circle_outlined,
+            size: 16,
+            color: done ? Colors.white : muted,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(color: muted, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _searchingRow({required Color muted, required Color accent}) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(accent)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Text("Finding the best match…", style: TextStyle(color: muted, fontWeight: FontWeight.w700))),
+      ],
+    );
+  }
+
+  Widget _driverCard({
+    required Color card,
+    required Color border,
+    required Color textMain,
+    required Color muted,
+    required Color accent,
+    required String name,
+    required String car,
+    required String plate,
+    required double rating,
+    required int etaMin,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withAlpha(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withAlpha(60)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: accent.withAlpha(30),
+            child: Text(name.characters.first.toUpperCase(), style: TextStyle(color: accent, fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(name, style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 16))),
+                    Icon(Icons.star_rounded, size: 18, color: accent),
+                    const SizedBox(width: 4),
+                    Text(rating.toStringAsFixed(1), style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text("$car • $plate", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text("ETA to pickup: ~$etaMin min", style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _routeMiniCard({
+  required Color card,
+  required Color border,
+  required Color textMain,
+  required Color muted,
+  required String pickup,
+  required String dropoff,
+  required List<String> stops,
+  required Color accent,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: card,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: border),
+      boxShadow: [
+        BoxShadow(
+          blurRadius: 18,
+          spreadRadius: 0,
+          offset: const Offset(0, 10),
+          color: Colors.black.withAlpha(18),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _miniRow(icon: Icons.my_location_rounded, label: "Pickup", value: pickup, textMain: textMain, muted: muted, accent: accent),
+        const SizedBox(height: 8),
+        if (stops.isNotEmpty) ...[
+          _miniRow(icon: Icons.pin_drop_rounded, label: "Stops", value: stops.join(" • "), textMain: textMain, muted: muted, accent: accent),
+          const SizedBox(height: 8),
+        ],
+        _miniRow(icon: Icons.flag_rounded, label: "Dropoff", value: dropoff, textMain: textMain, muted: muted, accent: accent),
+      ],
+    ),
+  );
+}
+
+Widget _miniRow({
+  required IconData icon,
+  required String label,
+  required String value,
+  required Color textMain,
+  required Color muted,
+  required Color accent,
+}) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Icon(icon, size: 18, color: accent),
+      const SizedBox(width: 8),
+      SizedBox(
+        width: 60,
+        child: Text(label, style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+      ),
+      Expanded(
+        child: Text(value, style: TextStyle(color: textMain, fontWeight: FontWeight.w800)),
+      ),
+    ],
+  );
+}
+
+
 
 // ====== Bottom sheet widget ======
 class _PlaceSheet extends StatefulWidget {
