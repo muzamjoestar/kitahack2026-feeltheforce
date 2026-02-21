@@ -7,8 +7,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../services/api_service.dart';
-import '../state/auth_store.dart';
-import 'profile_screen.dart';
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
 
@@ -939,39 +937,21 @@ class _ScannerScreenState extends State<ScannerScreen>
     );
   }
 
-  Future<void> _finalizeVerification() async {
-    if (!_isValid) return; // Don't proceed if the card was invalid
+Future<void> _finalizeVerification() async {
+  if (!_isValid) return;
 
-    final scannedData = {
-      'fullName': _nameCtrl.text,
-      'matric': _matricCtrl.text,
-      'kulliyyah': _kulliyyahCtrl.text,
-    };
+  final scannedData = {
+    'fullName': _nameCtrl.text.trim(),
+    'matric': _matricCtrl.text.trim(),
+    'kulliyyah': _kulliyyahCtrl.text.trim(),
+    'syncGoogle': _syncGoogle, // optional
+  };
 
-    try {
-      // If user is already logged in, update their profile (Mock)
-      if (auth.isLoggedIn && auth.matric != null) {
-        await AuthApi.updateProfile(
-          matric: auth.matric!,
-          name: _nameCtrl.text,
-        );
-      }
+  if (!mounted) return;
 
-      if (mounted) {
-        // Return data to the previous screen (ProfileScreen expects this)
-        Navigator.pop(context, scannedData);
-      }
-    } catch (e) {
-      debugPrint("Verification Error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Verification saved locally.")),
-        );
-        // Still pop to ensure flow continues
-        Navigator.pop(context, scannedData);
-      }
-    }
-  }
+  // Return data to previous screen (profile/register/etc)
+  Navigator.pop(context, scannedData);
+}
 
   Widget _buildEditField(String label, TextEditingController ctrl) {
     return Column(

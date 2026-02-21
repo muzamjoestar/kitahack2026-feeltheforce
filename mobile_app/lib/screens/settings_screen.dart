@@ -4,7 +4,6 @@ import '../theme/colors.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // From your branch
 import '../screens/login_screen.dart'; // From your branch
 import '../state/auth_store.dart'; // From main branch
-import 'profile_screen.dart'; // From main branch
 
 class SettingsScreen extends StatelessWidget {
   final VoidCallback onToggleTheme;
@@ -20,7 +19,7 @@ class SettingsScreen extends StatelessWidget {
       await FirebaseAuth.instance.signOut();
 
       // 2. Clear local state management (Main branch logic)
-      await AuthApi.logout();
+
       auth.logout();
 
       if (context.mounted) {
