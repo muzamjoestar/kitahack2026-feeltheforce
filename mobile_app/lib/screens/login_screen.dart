@@ -1,6 +1,9 @@
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../services/auth_service.dart';
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
@@ -60,30 +63,67 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _google() async {
+  Future<void> loginWithGoogleStrict(BuildContext context) async {
     FocusScope.of(context).unfocus();
     setState(() => _loading = true);
 
     try {
-      final user = await _auth.signInWithGoogle();
-      if (!mounted) return;
-      setState(() => _loading = false);
+      // 1. Sign in with Google & Firebase
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        setState(() => _loading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      final User? user = userCredential.user;
 
       if (user != null) {
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false);
-      } else {
-        _toast("Google sign-in was cancelled.");
+        // 2. Check Firestore for existing verified profile
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (doc.exists && (doc.data()?['isVerified'] == true)) {
+          if (!mounted) return;
+          setState(() => _loading = false);
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        } else {
+          // 3. Reject & Sign Out
+          await FirebaseAuth.instance.signOut();
+          await googleSignIn.signOut();
+
+          if (!mounted) return;
+          setState(() => _loading = false);
+          _toast(
+              "Access Denied: You must register manually and get verified first.",
+              isError: true);
+        }
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _toast("Google sign-in failed. Try again.");
+      _toast("Google sign-in failed: $e", isError: true);
     }
   }
 
-  void _toast(String msg) {
+  void _toast(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : null,
+      ),
     );
   }
 
@@ -126,14 +166,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 26),
+                  padding: const EdgeInsets.fromLTRB(18, 50, 18, 26),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // top label
                       _TopBrandBar(
                         title: "Welcome!",
-                        subtitle: "Sign in to join the secure student community.",
+                        subtitle:
+                            "Sign in to join the secure student community.",
                       ),
                       const SizedBox(height: 18),
 
@@ -144,7 +185,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() => _tab = i);
                           if (i == 1) {
                             // go to register screen (premium register UI)
-                            Navigator.pushReplacementNamed(context, '/register');
+                            Navigator.pushReplacementNamed(
+                                context, '/register');
                           }
                         },
                       ),
@@ -167,7 +209,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
-
                             _PremiumTextField(
                               label: "EMAIL",
                               hint: "e.g. yourname@live.iium.edu.my",
@@ -176,7 +217,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               keyboardType: TextInputType.emailAddress,
                             ),
                             const SizedBox(height: 14),
-
                             _PremiumTextField(
                               label: "PASSWORD",
                               hint: "Your password",
@@ -194,7 +234,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 10),
                             Align(
                               alignment: Alignment.centerRight,
@@ -214,9 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 6),
-
                             SizedBox(
                               width: double.infinity,
                               child: PrimaryButton(
@@ -227,15 +264,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onTap: _loading ? () {} : _login,
                               ),
                             ),
-
                             const SizedBox(height: 18),
                             _OrLine(text: "OR", muted: muted),
                             const SizedBox(height: 14),
-
                             SizedBox(
                               width: double.infinity,
                               child: _OutlineButton(
-                                onTap: _loading ? null : _google,
+                                onTap: _loading
+                                    ? null
+                                    : () => loginWithGoogleStrict(context),
                                 border: border,
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -265,8 +302,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       // bottom prompt
                       Center(
                         child: TextButton(
-                          onPressed: () =>
-                              Navigator.pushReplacementNamed(context, '/register'),
+                          onPressed: () => Navigator.pushReplacementNamed(
+                              context, '/register'),
                           child: Text(
                             "Don't have an account? Sign up",
                             style: TextStyle(

@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/auth_service.dart';
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
@@ -58,7 +57,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool get _hasSymbol =>
       RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=/\\[\]~`]').hasMatch(_passCtrl.text);
 
-  bool get _passOK => _hasMin8 && _hasUpper && _hasLower && _hasNumber && _hasSymbol;
+  bool get _passOK =>
+      _hasMin8 && _hasUpper && _hasLower && _hasNumber && _hasSymbol;
 
   Future<void> _register() async {
     FocusScope.of(context).unfocus();
@@ -96,26 +96,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false);
     } else {
       _toast("Registration failed. Please try again.");
-    }
-  }
-
-  Future<void> _google() async {
-    FocusScope.of(context).unfocus();
-    setState(() => _loading = true);
-    try {
-      final user = await _auth.signInWithGoogle();
-      if (!mounted) return;
-      setState(() => _loading = false);
-
-      if (user != null) {
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false);
-      } else {
-        _toast("Google sign-in was cancelled.");
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      _toast("Google sign-in failed. Try again.");
     }
   }
 
@@ -161,10 +141,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const _TopBrandBar(
                         title: "Create Account",
-                        subtitle: "Set up your secure student profile in minutes.",
+                        subtitle:
+                            "Set up your secure student profile in minutes.",
                       ),
                       const SizedBox(height: 18),
-
                       _AuthPillTabs(
                         value: _tab,
                         onChanged: (i) {
@@ -175,7 +155,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-
                       _FrostCard(
                         bg: card,
                         border: border,
@@ -253,45 +232,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: PrimaryButton(
-                                text: _loading ? "Please wait..." : "Create Account",
+                                text: _loading
+                                    ? "Please wait..."
+                                    : "Create Account",
                                 icon: Icons.arrow_forward_rounded,
                                 bg: UColors.gold,
                                 fg: Colors.black,
                                 onTap: _loading ? () {} : _register,
                               ),
                             ),
-
-                            const SizedBox(height: 18),
-                            _OrLine(text: "OR", muted: muted),
-                            const SizedBox(height: 14),
-
-                            SizedBox(
-                              width: double.infinity,
-                              child: _OutlineButton(
-                                onTap: _loading ? null : _google,
-                                border: border,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const FaIcon(FontAwesomeIcons.google, size: 18),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      "Sign up with Google",
-                                      style: TextStyle(
-                                        color: text,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 16),
-
                       Center(
                         child: TextButton(
                           onPressed: () =>
@@ -651,74 +604,6 @@ class _PremiumTextField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _OrLine extends StatelessWidget {
-  final String text;
-  final Color muted;
-
-  const _OrLine({required this.text, required this.muted});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Divider(color: muted.withValues(alpha: 0.25))),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            text,
-            style: TextStyle(
-              color: muted,
-              fontWeight: FontWeight.w900,
-              fontSize: 11,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-        Expanded(child: Divider(color: muted.withValues(alpha: 0.25))),
-      ],
-    );
-  }
-}
-
-class _OutlineButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  final Color border;
-  final Widget child;
-
-  const _OutlineButton({
-    required this.onTap,
-    required this.border,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final bg = isDark
-        ? Colors.white.withValues(alpha: 0.06)
-        : Colors.white.withValues(alpha: 0.92);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: 54,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: border),
-          ),
-          alignment: Alignment.center,
-          child: child,
-        ),
-      ),
     );
   }
 }

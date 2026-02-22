@@ -19,11 +19,12 @@ class _MarketplacePostScreenState extends State<MarketplacePostScreen> {
   final _ideaController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
+  final _maxPriceController = TextEditingController();
 
   bool _isGenerating = false;
   File? _selectedImage;
   String? _selectedCategory;
-  bool _isStartingPrice = false;
+  bool _isPriceRange = false;
 
   final List<String> _categories = [
     'Food Delivery',
@@ -42,6 +43,7 @@ class _MarketplacePostScreenState extends State<MarketplacePostScreen> {
     _ideaController.dispose();
     _descController.dispose();
     _priceController.dispose();
+    _maxPriceController.dispose();
     super.dispose();
   }
 
@@ -258,37 +260,181 @@ class _MarketplacePostScreenState extends State<MarketplacePostScreen> {
               const Text("Price (RM)",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: 'e.g., 50.00',
-                        filled: true,
-                        fillColor: inputBg,
-                        border: inputBorder,
-                        enabledBorder: inputBorder,
-                        focusedBorder: inputBorder.copyWith(
-                            borderSide:
-                                const BorderSide(color: Color(0xFFF4C430))),
-                      ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: inputBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.fromBorderSide(borderSide),
+                ),
+                child: Column(
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final w = constraints.maxWidth;
+                        // If range is active, we split space: (w - 17) / 2 for each field.
+                        // 17 comes from 1px divider + 16px spacing.
+                        final minWidth = _isPriceRange ? (w - 17) / 2 : w;
+                        final maxWidth = _isPriceRange ? (w - 17) / 2 : 0.0;
+
+                        return Row(
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              width: minWidth,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                    child: SizedBox(
+                                      height: _isPriceRange ? null : 0,
+                                      child: AnimatedOpacity(
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        opacity: _isPriceRange ? 1.0 : 0.0,
+                                        child: Text("MINIMUM",
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark
+                                                    ? Colors.white54
+                                                    : Colors.black54)),
+                                      ),
+                                    ),
+                                  ),
+                                  TextFormField(
+                                    controller: _priceController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    style: TextStyle(
+                                        fontSize: _isPriceRange ? 18 : 24,
+                                        fontWeight: FontWeight.bold),
+                                    decoration: InputDecoration(
+                                      prefixText: "RM ",
+                                      prefixStyle: TextStyle(
+                                          fontSize: _isPriceRange ? 18 : 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black),
+                                      border: InputBorder.none,
+                                      hintText: "0.00",
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              vertical: 8),
+                                    ),
+                                    validator: (val) =>
+                                        (val == null || val.isEmpty)
+                                            ? 'Required'
+                                            : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              width: _isPriceRange ? 17 + maxWidth : 0,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                physics: const NeverScrollableScrollPhysics(),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 1,
+                                      height: 40,
+                                      color: isDark
+                                          ? Colors.white24
+                                          : Colors.black12,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    SizedBox(
+                                      width: (w - 17) / 2,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text("MAXIMUM",
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isDark
+                                                      ? Colors.white54
+                                                      : Colors.black54)),
+                                          TextFormField(
+                                            controller: _maxPriceController,
+                                            keyboardType: const TextInputType
+                                                .numberWithOptions(
+                                                decimal: true),
+                                            style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold),
+                                            decoration: const InputDecoration(
+                                              prefixText: "RM ",
+                                              border: InputBorder.none,
+                                              hintText: "0.00",
+                                              isDense: true,
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(
+                                                      vertical: 8),
+                                            ),
+                                            validator: (val) {
+                                              if (!_isPriceRange) return null;
+                                              if (val == null || val.isEmpty)
+                                                return null;
+                                              final min = double.tryParse(
+                                                      _priceController.text) ??
+                                                  0;
+                                              final max =
+                                                  double.tryParse(val) ?? 0;
+                                              if (max <= min)
+                                                return "Must be > Min";
+                                              return null;
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _isStartingPrice,
-                        activeColor: const Color(0xFFF4C430),
-                        onChanged: (val) =>
-                            setState(() => _isStartingPrice = val ?? false),
+                    Divider(color: isDark ? Colors.white12 : Colors.black12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Text("Price Range",
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.black87)),
+                          const Spacer(),
+                          Transform.scale(
+                            scale: 0.8,
+                            child: Switch.adaptive(
+                              value: _isPriceRange,
+                              activeColor: const Color(0xFFF4C430),
+                              onChanged: (val) =>
+                                  setState(() => _isPriceRange = val),
+                            ),
+                          ),
+                        ],
                       ),
-                      const Text("Starting Price"),
-                    ],
-                  ),
-                ],
+                    )
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               const Text("Rough Idea (Keywords)",
@@ -371,29 +517,40 @@ class _MarketplacePostScreenState extends State<MarketplacePostScreen> {
                   alignLabelWithHint: true,
                 ),
               ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Submit logic
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Service Posted!')));
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF4C430),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("Post Service",
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-              ),
             ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          border: Border(
+              top: BorderSide(
+                  color: isDark ? Colors.white12 : Colors.grey.shade200)),
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: () {
+                if (_formKey.currentState!.validate()) {
+                  // TODO: Submit logic
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Service Posted!')));
+                  Navigator.pop(context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF4C430),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("Post Service",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
           ),
         ),
       ),
