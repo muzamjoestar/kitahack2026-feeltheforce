@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
 import 'package:camera/camera.dart';
 import 'package:firebase_core/firebase_core.dart'; // From your branch
+import 'package:universee/screens/chat_inbox_screen.dart';
+import 'package:universee/screens/splash_screen.dart';
+import 'package:universee/services/service_jobs_store.dart';
 import 'firebase_options.dart'; // From your branch
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // From your branch
 
@@ -40,6 +43,7 @@ import 'screens/privacy_policy_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/marketplace_screen.dart' as market;
 
+
 // 2. DEFINE THE NAVIGATOR KEY GLOBALLY
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -75,6 +79,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: ServiceJobsStore.I),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider.value(value: OrderStore.I),
         ChangeNotifierProvider.value(value: PrintStore.I),
@@ -142,7 +147,7 @@ class _UniserveAppState extends State<UniserveApp> {
       darkTheme: AppTheme.dark(),
 
       // Use your LoginScreen as the entry point
-      home: const LoginScreen(),
+      home: const SplashScreen(),
 
       routes: {
         '/login': (_) => const LoginScreen(),
@@ -153,7 +158,7 @@ class _UniserveAppState extends State<UniserveApp> {
         '/barber': (_) => const BarberScreen(),
         '/transport': (_) => const TransportScreen(),
         '/parcel': (_) => const ParcelScreen(),
-        '/print': (_) => const PrintServiceScreen(),
+        '/print': (_) => const PrintScreen(),
         '/photo': (_) => const PhotoScreen(),
         '/express': (_) => const ExpressScreen(),
         '/marketplace': (_) => const market.MarketplaceScreen(),
@@ -170,7 +175,8 @@ class _UniserveAppState extends State<UniserveApp> {
         '/edit-profile': (_) => const EditProfileScreen(),
         '/pc-repair': (_) => const market.MarketplaceScreen(),
         '/rental': (_) => const market.MarketplaceScreen(),
-        '/scan': (_) => ScannerScreen(cameras: cameras)
+        '/scan': (_) => ScannerScreen(cameras: cameras),
+        '/chat-inbox': (_) => const ChatInboxScreen(),
       },
     );
   }

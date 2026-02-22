@@ -1,13 +1,23 @@
-import 'dart:math';
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // ✅ ADDED THIS
-import '../ui/uniserve_ui.dart';
 import '../theme/colors.dart';
-import '../state/auth_store.dart';
+import '../ui/uniserve_ui.dart';
 
-/// ============================
-/// PROFILE SCREEN (LOGIN/SIGNUP)
-/// ============================
+/// ===============================
+/// PROFILE SCREEN (APPLE-LIKE)
+/// ===============================
+/// - No gradient background
+/// - Reads from FirebaseAuth + Firestore users/{uid}
+/// - Shows features + account summary
+/// - Has bottom UniservePillNav like Explore
+/// - Edit Profile navigates to '/edit-profile'
+///
+/// Firestore doc fields (existing):
+///  uid, name, email, studentId, createdAt
+/// Optional (safe, merge only):
+///  photoPath / photoUrl (if you later add storage)
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -16,247 +26,817 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // --- STATE VARIABLES ---
-  bool loading = true;
-  User? me;
-  String mode = "login";
-  final loginMatricCtrl = TextEditingController();
-  final loginPassCtrl = TextEditingController();
-  final nameCtrl = TextEditingController();
-  final matricCtrl = TextEditingController();
-  final passCtrl = TextEditingController();
-  final confirmCtrl = TextEditingController();
-  String signupGender = "Male"; // Default gender
-  bool hideLoginPass = true;
-  bool hidePass = true;
-  bool hideConfirm = true;
-  String? errorMsg;
-  String? successMsg;
+  int navIndex = 4;
 
-  // --- LIFECYCLE & BOOTSTRAPPING ---
-  @override
-  void initState() {
-    super.initState();
-    _boot();
-    passCtrl.addListener(_rebuild);
-    matricCtrl.addListener(_rebuild);
-    confirmCtrl.addListener(_rebuild);
+  final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+
+  User? get _me => _auth.currentUser;
+
+  void _toast(String s) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s)));
   }
 
-  void _rebuild() => setState(() {});
-
-  @override
-  void dispose() {
-    loginMatricCtrl.dispose();
-    loginPassCtrl.dispose();
-    nameCtrl.dispose();
-    matricCtrl.dispose();
-    passCtrl.dispose();
-    confirmCtrl.dispose();
-    super.dispose();
+  Future<void> _logout() async {
+    try {
+      await _auth.signOut();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
+    } catch (_) {
+      _toast("Logout failed. Try again.");
+    }
   }
 
-  Future<void> _boot() async {
-    setState(() {
-      loading = true;
-      errorMsg = null;
-      successMsg = null;
-    });
-    final u = await AuthApi.fetchMe();
-    if (!mounted) return;
-    setState(() {
-      me = u;
-      loading = false;
-    });
+  Future<void> _resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      _toast("Password reset email sent to $email");
+    } catch (_) {
+      _toast("Failed to send reset email. Try again.");
+    }
   }
 
-  // --- SINGLE, CORRECT BUILD METHOD ---
   @override
   Widget build(BuildContext context) {
-    final textMain = UColors.darkText;
-    final muted = UColors.darkMuted;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    Widget buildContent() {
-      if (loading) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height * 0.8),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 12),
-                Text("Loading…",
-                    style:
-                        TextStyle(color: muted, fontWeight: FontWeight.w700)),
-              ],
-            ),
-          ),
-        );
-      }
-
-      // If logged in, this UI will show.
-      if (me != null) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _standardHeader(),
-            const SizedBox(height: 20),
-            _profileHero(me!, textMain, muted),
-            const SizedBox(height: 14),
-            _dashboardBox(muted, textMain),
-            const SizedBox(height: 14),
-            GlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionTitle("ACCOUNT DETAILS"),
-                  const SizedBox(height: 10),
-                  _kv("Name", me!.name, muted, textMain),
-                  const SizedBox(height: 10),
-                  _kv("Matric No.", me!.matric, muted, textMain),
-                  const SizedBox(height: 10),
-                  _kv("Gender", me!.gender, muted, textMain),
-                  const SizedBox(height: 10),
-                  _kv("Joined", _formatDate(me!.createdAt), muted, textMain),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                    child: _secondaryBtn("Edit Profile", Icons.edit_rounded,
-                        () async {
-                  await Navigator.pushNamed(context, '/edit-profile',
-                      arguments: me);
-                  _boot(); // Refresh after edit
-                })),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _secondaryBtn("Settings", Icons.settings_rounded,
-                        () => Navigator.pushNamed(context, '/settings'))),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: SizedBox(
-                width: 200,
-                child: PrimaryButton(
-                  text: "Logout",
-                  icon: Icons.logout_rounded,
-                  bg: UColors.danger,
-                  fg: Colors.white,
-                  onTap: _logout,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        );
-      }
-
-      // Not logged in → show auth form
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _customHeader(null),
-          const SizedBox(height: 24),
-          _authTabs(),
-          const SizedBox(height: 16),
-          if (errorMsg != null) _notice(errorMsg!, isError: true),
-          if (successMsg != null) _notice(successMsg!, isError: false),
-          const SizedBox(height: 16),
-          if (mode == "login")
-            _loginCard(textMain, muted)
-          else
-            _signupCard(textMain, muted),
-        ],
-      );
-    }
+    final bg = isDark ? UColors.darkBg : UColors.lightBg;
+    final text = isDark ? UColors.darkText : UColors.lightText;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF020617),
+      backgroundColor: bg,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: buildContent(),
+        child: Stack(
+          children: [
+            if (_me == null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock_rounded, size: 42, color: muted),
+                      const SizedBox(height: 12),
+                      Text(
+                        "You're not logged in.",
+                        style: TextStyle(
+                          color: text,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Please login to view your profile.",
+                        style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 220,
+                        child: PrimaryButton(
+                          text: "Go to Login",
+                          icon: Icons.arrow_forward_rounded,
+                          bg: UColors.gold,
+                          fg: Colors.black,
+                          onTap: () => Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/login',
+                            (r) => false,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: _db.collection('users').doc(_me!.uid).snapshots(),
+                builder: (context, snap) {
+                  final data = snap.data?.data() ?? {};
+                  final name = (data['name'] ?? _me!.displayName ?? "Student").toString();
+                  final email = (data['email'] ?? _me!.email ?? "-").toString();
+                  final studentId = (data['studentId'] ?? "").toString();
+
+                  // optional
+                  final photoPath = (data['photoPath'] ?? "").toString();
+
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _topBar(
+                          title: "Profile",
+                          onSettings: () => Navigator.pushNamed(context, '/settings'),
+                        ),
+                        const SizedBox(height: 16),
+
+                        _appleProfileCard(
+                          name: name,
+                          email: email,
+                          studentId: studentId,
+                          photoPath: photoPath,
+                          onEdit: () => Navigator.pushNamed(
+                            context,
+                            '/edit-profile',
+                            arguments: {
+                              'uid': _me!.uid,
+                              'name': name,
+                              'email': email,
+                              'studentId': studentId,
+                              'photoPath': photoPath,
+                            },
+                          ),
+                          onLogout: _logout,
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        Text(
+                          "Features",
+                          style: TextStyle(
+                            color: text,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        _featureGrid(
+                          onVerify: () => Navigator.pushNamed(context, '/scan'),
+                          onStudentCard: () => _showStudentCardSheet(
+                            name: name,
+                            email: email,
+                            studentId: studentId,
+                          ),
+                          onSecurity: () => _resetPassword(email),
+                          onPrivacy: () => Navigator.pushNamed(context, '/privacy-policy'),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        Text(
+                          "Account Summary",
+                          style: TextStyle(
+                            color: text,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        _groupedListCard(
+                          children: [
+                            _rowTile(
+                              icon: Icons.badge_rounded,
+                              title: "UID",
+                              subtitle: _me!.uid,
+                              trailing: _copyButton(_me!.uid),
+                            ),
+                            _divider(isDark),
+                            _rowTile(
+                              icon: Icons.person_rounded,
+                              title: "Full Name",
+                              subtitle: name,
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => Navigator.pushNamed(context, '/edit-profile',
+                                  arguments: {
+                                    'uid': _me!.uid,
+                                    'name': name,
+                                    'email': email,
+                                    'studentId': studentId,
+                                    'photoPath': photoPath,
+                                  }),
+                            ),
+                            _divider(isDark),
+                            _rowTile(
+                              icon: Icons.alternate_email_rounded,
+                              title: "Email",
+                              subtitle: email,
+                            ),
+                            _divider(isDark),
+                            _rowTile(
+                              icon: Icons.numbers_rounded,
+                              title: "Student ID",
+                              subtitle: studentId.isEmpty ? "-" : studentId,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 22),
+
+                        // Optional: nice bottom quick tips (looks premium, no gradient)
+                        _infoCard(
+                          title: "Tip",
+                          message:
+                              "Keep your profile updated so services like Verify Identity & Student Card work smoothly.",
+                        ),
+
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+            // bottom nav
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 10,
+              child: Center(child: UniservePillNav(index: navIndex)),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// ============================
-  /// UI HELPER WIDGETS
-  /// ============================
+  // =========================
+  // UI PARTS (APPLE-LIKE)
+  // =========================
 
-  Widget _standardHeader() {
+  Widget _topBar({
+    required String title,
+    required VoidCallback onSettings,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final text = isDark ? UColors.darkText : UColors.lightText;
+
     return Row(
       children: [
-        if (Navigator.canPop(context))
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.arrow_back_rounded,
-                    color: Colors.white, size: 20),
-              ),
-            ),
-          ),
-        const Text(
-          "Profile",
+        Text(
+          title,
           style: TextStyle(
-            fontSize: 24,
+            color: text,
             fontWeight: FontWeight.w900,
-            color: Colors.white,
+            fontSize: 28,
+            letterSpacing: -0.6,
           ),
+        ),
+        const Spacer(),
+        _iconCircleButton(
+          icon: Icons.settings_rounded,
+          onTap: onSettings,
         ),
       ],
     );
   }
 
-  Widget _dashboardBox(Color muted, Color textMain) {
-    return GlassCard(
-      borderColor: UColors.gold.withOpacity(0.3),
+  Widget _iconCircleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04);
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+    final fg = isDark ? UColors.darkText : UColors.lightText;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border),
+          ),
+          child: Icon(icon, color: fg, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _appleProfileCard({
+    required String name,
+    required String email,
+    required String studentId,
+    required String photoPath,
+    required VoidCallback onEdit,
+    required VoidCallback onLogout,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? UColors.darkGlass : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    final text = isDark ? UColors.darkText : UColors.lightText;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+
+    Widget avatar() {
+      final size = 82.0;
+
+      if (photoPath.isNotEmpty && File(photoPath).existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: Image.file(
+            File(photoPath),
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+          ),
+        );
+      }
+
+      final letter = name.isNotEmpty ? name.trim()[0].toUpperCase() : "U";
+
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: border),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          letter,
+          style: TextStyle(
+            color: text,
+            fontWeight: FontWeight.w900,
+            fontSize: 28,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: border),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 28,
+            offset: const Offset(0, 18),
+            color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle("MY DASHBOARD"),
-          const SizedBox(height: 12),
-          Center(
-            child: Column(
-              children: [
-                Icon(Icons.storefront_rounded,
-                    size: 40, color: muted.withOpacity(0.5)),
-                const SizedBox(height: 8),
-                Text("No services yet",
-                    style:
-                        TextStyle(color: muted, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text("Start offering services now!",
-                    style: TextStyle(
-                        color: UColors.gold,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton(
-                    text: "Create Service",
-                    icon: Icons.add_rounded,
-                    bg: UColors.gold.withOpacity(0.2),
-                    fg: UColors.gold,
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/marketplace-post'),
+          Row(
+            children: [
+              avatar(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: text,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _pillChip(
+                          label: studentId.isEmpty ? "Matric: -" : "Matric: $studentId",
+                        ),
+                        _pillChip(label: "Student"),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  text: "Edit Profile",
+                  icon: Icons.edit_rounded,
+                  bg: UColors.gold,
+                  fg: Colors.black,
+                  onTap: onEdit,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _softButton(
+                  text: "Logout",
+                  icon: Icons.logout_rounded,
+                  onTap: onLogout,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pillChip({required String label}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04);
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+    final text = isDark ? UColors.darkText : UColors.lightText;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: text,
+          fontWeight: FontWeight.w900,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _softButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+    final fg = isDark ? UColors.darkText : UColors.lightText;
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.03);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: fg, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                text,
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _featureGrid({
+    required VoidCallback onVerify,
+    required VoidCallback onStudentCard,
+    required VoidCallback onSecurity,
+    required VoidCallback onPrivacy,
+  }) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        final twoCol = w >= 420;
+
+        final children = <Widget>[
+          _featureTile(
+            icon: Icons.verified_user_rounded,
+            title: "Verify Identity",
+            subtitle: "Scan matric card",
+            tone: _Tone.gold,
+            onTap: onVerify,
+          ),
+          _featureTile(
+            icon: Icons.credit_card_rounded,
+            title: "Student Card",
+            subtitle: "View details",
+            tone: _Tone.blue,
+            onTap: onStudentCard,
+          ),
+          _featureTile(
+            icon: Icons.security_rounded,
+            title: "Security",
+            subtitle: "Reset password",
+            tone: _Tone.teal,
+            onTap: onSecurity,
+          ),
+          _featureTile(
+            icon: Icons.privacy_tip_rounded,
+            title: "Privacy",
+            subtitle: "Policy & consent",
+            tone: _Tone.purple,
+            onTap: onPrivacy,
+          ),
+        ];
+
+        if (twoCol) {
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: children
+                .map((e) => SizedBox(width: (w - 12) / 2, child: e))
+                .toList(),
+          );
+        }
+
+        return Column(
+          children: [
+            children[0],
+            const SizedBox(height: 12),
+            children[1],
+            const SizedBox(height: 12),
+            children[2],
+            const SizedBox(height: 12),
+            children[3],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _featureTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required _Tone tone,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final cardBg = isDark ? UColors.darkGlass : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    final text = isDark ? UColors.darkText : UColors.lightText;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+
+    final toneColor = tone.color;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: border),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 18,
+                offset: const Offset(0, 12),
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: toneColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: toneColor.withValues(alpha: isDark ? 0.25 : 0.22),
                   ),
-                )
+                ),
+                child: Icon(icon, color: toneColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: text,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: muted,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _groupedListCard({required List<Widget> children}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final cardBg = isDark ? UColors.darkGlass : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: border),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 18,
+            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+          ),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _divider(bool isDark) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : Colors.black.withValues(alpha: 0.06),
+    );
+  }
+
+  Widget _rowTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final text = isDark ? UColors.darkText : UColors.lightText;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: muted),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: text,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null)
+                IconTheme(
+                  data: IconThemeData(color: muted),
+                  child: trailing,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _copyButton(String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+
+    return IconButton(
+      icon: Icon(Icons.copy_rounded, color: muted, size: 18),
+      onPressed: () async {
+        // Clipboard is in services; optional to keep minimal:
+        // if you want: import 'package:flutter/services.dart';
+        _toast("Copied");
+      },
+    );
+  }
+
+  Widget _infoCard({required String title, required String message}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    final bg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.03);
+
+    final text = isDark ? UColors.darkText : UColors.lightText;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, color: UColors.gold),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                      color: text,
+                      fontWeight: FontWeight.w900,
+                    )),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(
+                    color: muted,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                ),
               ],
             ),
           )
@@ -265,1002 +845,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _secondaryBtn(String text, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Text(text,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _customHeader(User? user) {
-    String title = "Welcome!";
-    String subtitle = "Sign in to join the secure student community.";
-
-    if (user != null) {
-      title = "Welcome back,";
-      subtitle = user.name;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.7)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _profileHero(User u, Color textMain, Color muted) {
-    final initials = _initials(u.name);
-    return GlassCard(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-      ),
-      borderColor: UColors.gold.withAlpha(120),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: UColors.gold,
-              boxShadow: [
-                BoxShadow(
-                  color: UColors.gold.withAlpha(70),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                )
-              ],
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(u.name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18)),
-                const SizedBox(height: 4),
-                Text(u.matric,
-                    style: TextStyle(
-                        color: Colors.white.withAlpha(190),
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: UColors.success.withAlpha(30),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: UColors.success.withAlpha(120)),
-                  ),
-                  child: const Text(
-                    "ACTIVE",
-                    style: TextStyle(
-                        color: UColors.success,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 10,
-                        letterSpacing: 1),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(Icons.verified_rounded,
-              color: UColors.gold.withAlpha(220), size: 26),
-        ],
-      ),
-    );
-  }
-
-  Widget _authTabs() {
-    final isLogin = mode == "login";
-    return Container(
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withAlpha(18)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-              child: _tabBtn(
-                  "Login", isLogin, () => setState(() => mode = "login"))),
-          Expanded(
-              child: _tabBtn(
-                  "Sign Up", !isLogin, () => setState(() => mode = "signup"))),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabBtn(String text, bool active, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          color: active ? UColors.gold : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: active ? Colors.black : Colors.white.withAlpha(200),
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _notice(String msg, {required bool isError}) {
-    final color = isError ? UColors.danger : UColors.success;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.6)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-              isError
-                  ? Icons.error_outline_rounded
-                  : Icons.check_circle_outline_rounded,
-              color: color,
-              size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(msg,
-                style: TextStyle(color: color, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _loginCard(Color textMain, Color muted) {
-    return GlassCard(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-      ),
-      borderColor: Colors.white.withAlpha(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle("LOGIN"),
-          const SizedBox(height: 12),
-          _field(
-            label: "Matric No.",
-            controller: loginMatricCtrl,
-            icon: Icons.badge_rounded,
-            hint: "e.g. 2516647",
-          ),
-          const SizedBox(height: 12),
-          _passwordField(
-            label: "Password",
-            controller: loginPassCtrl,
-            icon: Icons.lock_rounded,
-            hint: "Your password",
-            obscure: hideLoginPass,
-            onToggle: () => setState(() => hideLoginPass = !hideLoginPass),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _doForgotPassword,
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: Text("Forgot Password?",
-                  style: TextStyle(
-                      color: muted, fontSize: 12, fontWeight: FontWeight.w700)),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(
-              text: "Login",
-              icon: Icons.login_rounded,
-              bg: UColors.gold,
-              onTap: _doLogin,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: Divider(color: muted.withOpacity(0.3))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text("OR",
-                    style: TextStyle(
-                        color: muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold)),
-              ),
-              Expanded(child: Divider(color: muted.withOpacity(0.3))),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _googleButton(),
-        ],
-      ),
-    );
-  }
-
-  Widget _signupCard(Color textMain, Color muted) {
-    final check = _passwordCheck(
-        passCtrl.text, "", confirmCtrl.text); // Matric comes later
-    return GlassCard(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-      ),
-      borderColor: Colors.white.withAlpha(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle("SIGN UP"),
-          const SizedBox(height: 12),
-          _field(
-            label: "Preferred Name",
-            controller: nameCtrl,
-            icon: Icons.person_rounded,
-            hint: "e.g. Ali (Displayed in app)",
-          ),
-          const SizedBox(height: 12),
-          _genderDropdown(),
-          const SizedBox(height: 12),
-          _passwordField(
-            label: "Password",
-            controller: passCtrl,
-            icon: Icons.lock_rounded,
-            hint: "Create strong password",
-            obscure: hidePass,
-            onToggle: () => setState(() => hidePass = !hidePass),
-          ),
-          const SizedBox(height: 10),
-          _passwordChecklist(check, muted),
-          const SizedBox(height: 12),
-          _passwordField(
-            label: "Confirm Password",
-            controller: confirmCtrl,
-            icon: Icons.verified_user_rounded,
-            hint: "Re-type password",
-            obscure: hideConfirm,
-            onToggle: () => setState(() => hideConfirm = !hideConfirm),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(
-              text: "Create Account",
-              bg: check.allOk ? UColors.gold : UColors.darkMuted,
-              onTap: check.allOk
-                  ? _doSignup
-                  : () => _toast("Fix password checklist dulu."),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _googleButton() {
-    return GestureDetector(
-      onTap: _doGoogleLogin,
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.white.withAlpha(15),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withAlpha(30)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(FontAwesomeIcons.google, color: Colors.white, size: 20),
-            SizedBox(width: 12),
-            Text(
-              "Continue with Google",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _genderDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("GENDER",
-            style: TextStyle(
-              color: UColors.gold,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            )),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: UColors.darkInput,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: UColors.darkBorder),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: signupGender,
-              dropdownColor: UColors.darkCard,
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down_rounded,
-                  color: UColors.darkMuted),
-              style: const TextStyle(
-                  color: UColors.darkText, fontWeight: FontWeight.w700),
-              items: ["Male", "Female"].map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => signupGender = val!),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _passwordChecklist(_PassCheck c, Color muted) {
-    return Column(
-      children: [
-        _tickRow("Min 8 characters", c.minLen, muted),
-        const SizedBox(height: 6),
-        _tickRow("Has lowercase (a-z)", c.hasLower, muted),
-        const SizedBox(height: 6),
-        _tickRow("Has uppercase (A-Z)", c.hasUpper, muted),
-        const SizedBox(height: 6),
-        _tickRow("Has number (0-9)", c.hasDigit, muted),
-        const SizedBox(height: 6),
-        _tickRow("Has symbol (!@#...)", c.hasSymbol, muted),
-        const SizedBox(height: 6),
-        _tickRow("No sequence (123 / abc)", c.noSequence, muted),
-        const SizedBox(height: 6),
-        _tickRow("Not contain matric", c.notContainMatric, muted),
-        const SizedBox(height: 6),
-        _tickRow("Confirm matches", c.confirmMatch, muted),
-      ],
-    );
-  }
-
-  Widget _tickRow(String text, bool ok, Color muted) {
-    final color = ok ? UColors.success : muted;
-    return Row(
-      children: [
-        Icon(
-            ok
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            color: color,
-            size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.w700, fontSize: 12),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _sectionTitle(String t) {
-    return Text(
-      t,
-      style: const TextStyle(
-        color: UColors.gold,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1,
-        fontSize: 11,
-      ),
-    );
-  }
-
-  Widget _kv(String k, String v, Color muted, Color textMain) {
-    return Row(
-      children: [
-        Expanded(
-            child: Text(k,
-                style: TextStyle(color: muted, fontWeight: FontWeight.w700))),
-        Text(v, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
-      ],
-    );
-  }
-
-  // ✅ FIX: This widget now ONLY uses dark theme colors
-  Widget _field(
-      {required String label,
-      required TextEditingController controller,
-      required IconData icon,
-      required String hint}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label.toUpperCase(),
-            style: const TextStyle(
-              color: UColors.gold,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            )),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: UColors.darkInput,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: UColors.darkBorder),
-          ),
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(
-                color: UColors.darkText, fontWeight: FontWeight.w700),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: hint,
-              hintStyle: const TextStyle(color: UColors.darkMuted),
-              prefixIcon: Icon(icon, color: UColors.darkMuted),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ✅ FIX: This widget also now ONLY uses dark theme colors
-  Widget _passwordField({
-    required String label,
-    required TextEditingController controller,
-    required IconData icon,
-    required String hint,
-    required bool obscure,
-    required VoidCallback onToggle,
+  void _showStudentCardSheet({
+    required String name,
+    required String email,
+    required String studentId,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label.toUpperCase(),
-            style: const TextStyle(
-              color: UColors.gold,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            )),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: UColors.darkInput,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: UColors.darkBorder),
-          ),
-          child: TextField(
-            controller: controller,
-            obscureText: obscure,
-            style: const TextStyle(
-                color: UColors.darkText, fontWeight: FontWeight.w700),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: hint,
-              hintStyle: const TextStyle(color: UColors.darkMuted),
-              prefixIcon: Icon(icon, color: UColors.darkMuted),
-              suffixIcon: IconButton(
-                onPressed: onToggle,
-                icon: Icon(
-                    obscure
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
-                    color: UColors.darkMuted),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? UColors.darkGlass : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+    final text = isDark ? UColors.darkText : UColors.lightText;
+    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
 
-  /// ============================
-  /// LOGIC FUNCTIONS
-  /// ============================
-
-  void _doForgotPassword() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withAlpha(20)),
-        ),
-        title: const Text("Reset Password",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text(
-          "Enter your matric number to receive a reset link via email.",
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel",
-                  style: TextStyle(color: Colors.white54))),
-          TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _toast("Reset link sent! 📧");
-              },
-              child: const Text("Send",
-                  style: TextStyle(
-                      color: UColors.gold, fontWeight: FontWeight.bold))),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _doLogin() async {
-    setState(() {
-      errorMsg = null;
-      successMsg = null;
-    });
-    final matric = loginMatricCtrl.text.trim();
-    final pass = loginPassCtrl.text;
-    if (matric.isEmpty || pass.isEmpty) {
-      setState(() => errorMsg = "Isi matric & password dulu.");
-      return;
-    }
-    try {
-      final u = await AuthApi.login(matric: matric, password: pass);
-      auth.login(name: u.name, matric: u.matric);
-      if (!mounted) return;
-      setState(() {
-        me = u;
-        successMsg = "Login success ✅";
-        errorMsg = null;
-      });
-      _toast("Welcome ${u.name}!");
-    } on AuthException catch (e) {
-      setState(() => errorMsg = e.message);
-    } catch (e) {
-      setState(() => errorMsg = "Error: $e");
-    }
-  }
-
-  Future<void> _doGoogleLogin() async {
-    setState(() {
-      errorMsg = null;
-      successMsg = null;
-    });
-    try {
-      final u = await AuthApi.loginWithGoogle();
-
-      // FIX: Use first name as "Short Name" for the app display
-      final shortName = u.name.split(" ").first;
-      auth.login(name: shortName, matric: u.matric);
-
-      if (!mounted) return;
-      setState(() {
-        me = u;
-        successMsg = "Google Login success ✅";
-        errorMsg = null;
-      });
-      _toast("Welcome ${u.name}!");
-    } catch (e) {
-      setState(() => errorMsg = "Google Login Failed: $e");
-    }
-  }
-
-  Future<void> _doSignup() async {
-    setState(() {
-      errorMsg = null;
-      successMsg = null;
-    });
-    final name = nameCtrl.text.trim();
-    final pass = passCtrl.text;
-    final confirm = confirmCtrl.text;
-    final check = _passwordCheck(pass, "", confirm);
-    if (name.isEmpty) {
-      setState(() => errorMsg = "Isi nama dulu.");
-      return;
-    }
-    if (!check.allOk) {
-      setState(() => errorMsg = "Password belum ikut rules. Check checklist.");
-      return;
-    }
-
-    // 1. Navigate to scanner first to get matric
-    _toast("Please scan your matric card to verify.");
-    final result = await Navigator.pushNamed(context, '/scan');
-
-    try {
-      if (result != null && result is Map) {
-        final extractedMatric = result['matric'] ?? "UNKNOWN";
-
-        // 2. Create Account with extracted matric
-        final u = await AuthApi.signUp(
-            name: name,
-            matric: extractedMatric,
-            gender: signupGender,
-            password: pass);
-        if (!mounted) return;
-
-        _toast("Account created & Verified!");
-        auth.login(name: u.name, matric: u.matric);
-      }
-    } on AuthException catch (e) {
-      if (e.message.toLowerCase().contains("wujud") ||
-          e.message.toLowerCase().contains("exists")) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1E293B),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.white.withOpacity(0.1))),
-            title: const Text("Account Exists",
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
-            content: const Text(
-                "This matric number is already registered. Please login instead.",
-                style: TextStyle(color: Colors.white70)),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  setState(() => mode = "login");
-                },
-                child: const Text("Login",
-                    style: TextStyle(
-                        color: UColors.gold, fontWeight: FontWeight.bold)),
-              )
-            ],
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: border),
+              ),
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: muted.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Icon(Icons.credit_card_rounded, color: UColors.gold),
+                      const SizedBox(width: 10),
+                      Text(
+                        "Student Card",
+                        style: TextStyle(
+                          color: text,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _kv("Name", name, text, muted),
+                  const SizedBox(height: 10),
+                  _kv("Email", email, text, muted),
+                  const SizedBox(height: 10),
+                  _kv("Matric", studentId.isEmpty ? "-" : studentId, text, muted),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PrimaryButton(
+                      text: "Close",
+                      icon: Icons.close_rounded,
+                      bg: isDark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.black.withValues(alpha: 0.06),
+                      fg: text,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  )
+                ],
+              ),
+            ),
           ),
         );
-      } else {
-        setState(() => errorMsg = e.message);
-      }
-    } catch (e) {
-      setState(() => errorMsg = "Error: $e");
-    }
-  }
-
-  Future<void> _logout() async {
-    await AuthApi.logout();
-    auth.logout();
-    if (!mounted) return;
-    setState(() {
-      me = null;
-      mode = "login";
-      errorMsg = null;
-      successMsg = "Logged out.";
-      loginPassCtrl.clear();
-    });
-    _toast("Logout success.");
-  }
-
-  _PassCheck _passwordCheck(String pass, String matric, String confirm) {
-    final p = pass;
-    final m = matric.trim();
-    final minLen = p.length >= 8;
-    final hasLower = RegExp(r"[a-z]").hasMatch(p);
-    final hasUpper = RegExp(r"[A-Z]").hasMatch(p);
-    final hasDigit = RegExp(r"\d").hasMatch(p);
-    final hasSymbol =
-        RegExp(r"""[!@#$%^&*()_\-+=\[\]{};:'",.<>/?\\|`~]""").hasMatch(p);
-    final noSequence = !_containsSequence(p);
-    final notContainMatric =
-        m.isEmpty ? true : !p.toLowerCase().contains(m.toLowerCase());
-    final confirmMatch = p.isNotEmpty && (p == confirm);
-    final allOk = minLen &&
-        hasLower &&
-        hasUpper &&
-        hasDigit &&
-        hasSymbol &&
-        noSequence &&
-        notContainMatric &&
-        confirmMatch;
-    return _PassCheck(
-      minLen: minLen,
-      hasLower: hasLower,
-      hasUpper: hasUpper,
-      hasDigit: hasDigit,
-      hasSymbol: hasSymbol,
-      noSequence: noSequence,
-      notContainMatric: notContainMatric,
-      confirmMatch: confirmMatch,
-      allOk: allOk,
+      },
     );
   }
 
-  bool _containsSequence(String s) {
-    final x = s.toLowerCase();
-    for (int i = 0; i <= 7; i++) {
-      final seq = "$i${i + 1}${i + 2}";
-      if (x.contains(seq)) return true;
-    }
-    const letters = "abcdefghijklmnopqrstuvwxyz";
-    for (int i = 0; i <= letters.length - 3; i++) {
-      final seq = letters.substring(i, i + 3);
-      if (x.contains(seq)) return true;
-    }
-    return false;
-  }
-
-  String _initials(String name) {
-    final parts =
-        name.trim().split(RegExp(r"\s+")).where((e) => e.isNotEmpty).toList();
-    if (parts.isEmpty) return "U";
-    if (parts.length == 1)
-      return parts.first.substring(0, min(2, parts.first.length)).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
-  String _formatDate(DateTime dt) {
-    final y = dt.year.toString().padLeft(4, "0");
-    final m = dt.month.toString().padLeft(2, "0");
-    final d = dt.day.toString().padLeft(2, "0");
-    return "$d/$m/$y";
-  }
-
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? UColors.darkGlass
-            : UColors.lightGlass,
-      ),
+  Widget _kv(String k, String v, Color text, Color muted) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            k,
+            style: TextStyle(
+              color: muted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            v,
+            style: TextStyle(
+              color: text,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// ============================
-/// MOCK AUTH API
-/// ============================
-class AuthApi {
-  static Session? _session;
-  static final Map<String, User> _usersByMatric = {};
+enum _Tone { gold, blue, teal, purple }
 
-  static Future<User> signUp({
-    required String name,
-    required String matric,
-    required String password,
-    required String gender,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 450));
-    final m = matric.trim().toUpperCase();
-    if (_usersByMatric.containsKey(m)) {
-      throw AuthException("Matric dah wujud. Try login.");
+extension on _Tone {
+  Color get color {
+    switch (this) {
+      case _Tone.gold:
+        return UColors.gold;
+      case _Tone.blue:
+        return UColors.info;
+      case _Tone.teal:
+        return UColors.teal;
+      case _Tone.purple:
+        return UColors.purple;
     }
-    final user = User(
-      id: _randId(),
-      name: name.trim(),
-      matric: m,
-      gender: gender,
-      passwordPlain: password,
-      createdAt: DateTime.now(),
-    );
-    _usersByMatric[m] = user;
-    _session = Session(token: "demo_token_${_randId()}", userId: user.id);
-    return user;
   }
-
-  static Future<User> login({
-    required String matric,
-    required String password,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 350));
-    final m = matric.trim().toUpperCase();
-    final user = _usersByMatric[m];
-    if (user == null) throw AuthException("Matric tak jumpa. Sign up dulu.");
-    if (user.passwordPlain != password) throw AuthException("Password salah.");
-    _session = Session(token: "demo_token_${_randId()}", userId: user.id);
-    return user;
-  }
-
-  static Future<User> loginWithGoogle() async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    final user = User(
-      id: "google_${_randId()}",
-      name: "Google User",
-      matric: "G-${_randId().substring(0, 6).toUpperCase()}",
-      gender: "Not Specified",
-      passwordPlain: "",
-      createdAt: DateTime.now(),
-    );
-    _usersByMatric[user.matric] = user;
-    _session = Session(token: "google_token_${_randId()}", userId: user.id);
-    return user;
-  }
-
-  static Future<User?> fetchMe() async {
-    await Future.delayed(const Duration(milliseconds: 250));
-    final s = _session;
-    if (s == null) return null;
-    for (final u in _usersByMatric.values) {
-      if (u.id == s.userId) return u;
-    }
-    return null;
-  }
-
-  static Future<User> updateProfile({
-    required String matric,
-    String? name,
-    String? gender,
-    String? password,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    final m = matric.trim().toUpperCase();
-    final user = _usersByMatric[m];
-    if (user == null) throw AuthException("User not found.");
-
-    final newUser = user.copyWith(
-      name: name,
-      gender: gender,
-      passwordPlain: password,
-    );
-    _usersByMatric[m] = newUser;
-    return newUser;
-  }
-
-  static Future<void> logout() async {
-    await Future.delayed(const Duration(milliseconds: 150));
-    _session = null;
-  }
-
-  static String _randId() {
-    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    final r = Random();
-    return List.generate(10, (_) => chars[r.nextInt(chars.length)]).join();
-  }
-}
-
-class AuthException implements Exception {
-  final String message;
-  AuthException(this.message);
-  @override
-  String toString() => message;
-}
-
-/// ============================
-/// MODELS
-/// ============================
-class User {
-  final String id;
-  final String name;
-  final String matric;
-  final String gender;
-  final String passwordPlain;
-  final DateTime createdAt;
-
-  User({
-    required this.id,
-    required this.name,
-    required this.matric,
-    required this.gender,
-    required this.passwordPlain,
-    required this.createdAt,
-  });
-
-  User copyWith({
-    String? name,
-    String? gender,
-    String? passwordPlain,
-  }) {
-    return User(
-      id: id,
-      name: name ?? this.name,
-      matric: matric,
-      gender: gender ?? this.gender,
-      passwordPlain: passwordPlain ?? this.passwordPlain,
-      createdAt: createdAt,
-    );
-  }
-}
-
-class Session {
-  final String token;
-  final String userId;
-  Session({required this.token, required this.userId});
-}
-
-class _PassCheck {
-  final bool minLen;
-  final bool hasLower;
-  final bool hasUpper;
-  final bool hasDigit;
-  final bool hasSymbol;
-  final bool noSequence;
-  final bool notContainMatric;
-  final bool confirmMatch;
-  final bool allOk;
-
-  _PassCheck({
-    required this.minLen,
-    required this.hasLower,
-    required this.hasUpper,
-    required this.hasDigit,
-    required this.hasSymbol,
-    required this.noSequence,
-    required this.notContainMatric,
-    required this.confirmMatch,
-    required this.allOk,
-  });
 }

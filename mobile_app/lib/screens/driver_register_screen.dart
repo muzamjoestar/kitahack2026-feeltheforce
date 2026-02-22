@@ -1,9 +1,13 @@
 
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart' ;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/colors.dart';
+import '../services/driver_mode_store.dart';
 
 class DriverRegisterScreen extends StatefulWidget {
   const DriverRegisterScreen({super.key});
@@ -16,17 +20,25 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
   final nameCtrl = TextEditingController();
   final matricCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
+  final addressCtrl = TextEditingController();
+  final emergencyCtrl = TextEditingController();
+  final idCtrl = TextEditingController();
   final modelCtrl = TextEditingController();
   final plateCtrl = TextEditingController();
 
   bool muslimah = false;
 
-  String selectedVehicle = "Car (Sedan/Compact)"; // default active
+  String selectedVehicle = "Car (Sedan/Compact)"; // transporter only
   bool submitting = false;
+
+  // service selection
+  String selectedService = _Services.transporter.key; // default
 
   // uploads
   _PickedDoc? matricCard;
-  _PickedDoc? license;
+  _PickedDoc? selfie;
+  _PickedDoc? licenseFront;
+  _PickedDoc? licenseBack;
   _PickedDoc? icFront;
   _PickedDoc? icBack;
 
@@ -35,10 +47,15 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
     nameCtrl.dispose();
     matricCtrl.dispose();
     phoneCtrl.dispose();
+    addressCtrl.dispose();
+    emergencyCtrl.dispose();
+    idCtrl.dispose();
     modelCtrl.dispose();
     plateCtrl.dispose();
     super.dispose();
   }
+
+  bool get _isTransporter => selectedService == _Services.transporter.key;
 
   Future<void> _pickDoc({
     required void Function(_PickedDoc doc) onPicked,
@@ -67,6 +84,16 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
   Color get _textMain => _isDark ? UColors.darkText : UColors.lightText;
   Color get _muted => _isDark ? UColors.darkMuted : UColors.lightMuted;
 
+  static const String _brandLogoAsset = 'assets/uniserve-deep-teal-primary.svg';
+
+  Widget _brandLogo({double size = 44}) {
+    return SvgPicture.asset(
+      _brandLogoAsset,
+      width: size,
+      height: size,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,25 +116,43 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
                   _sectionTitle("1. DRIVER INFORMATION"),
                   const SizedBox(height: 10),
                   _field(controller: nameCtrl, hint: "Full Name", icon: Icons.person_rounded),
-                  _field(controller: matricCtrl, hint: "Matric Number", icon: Icons.badge_rounded),
+                  _field(controller: matricCtrl, hint: "Matric Number (optional for Transporter)", icon: Icons.badge_rounded),
                   _field(controller: phoneCtrl, hint: "WhatsApp Number", icon: Icons.phone_rounded, keyboard: TextInputType.phone),
 
                   const SizedBox(height: 6),
-                  _sectionTitle("2. SELECT VEHICLE TYPE"),
+                  _sectionTitle("2. PILIH JENIS SERVIS"),
                   const SizedBox(height: 10),
-                  _vehicleSelector(),
+                  _serviceSelector(),
+                  const SizedBox(height: 12),
+                  _serviceRequirementNote(),
 
                   const SizedBox(height: 16),
-                  _sectionTitle("3. VEHICLE DETAILS"),
+                  _sectionTitle(_isTransporter ? "3. MAKLUMAT PERIBADI (TRANSPORTER)" : "3. MAKLUMAT RINGKAS"),
                   const SizedBox(height: 10),
-                  _field(controller: modelCtrl, hint: "Model (e.g. Perodua Bezza Blue)", icon: Icons.directions_car_rounded),
-                  _field(controller: plateCtrl, hint: "Plate Number (e.g. VAA 1234)", icon: Icons.pin_rounded),
+                  if (_isTransporter) ...[
+                    _field(controller: idCtrl, hint: "IC / Passport", icon: Icons.perm_identity_rounded),
+                    _field(controller: addressCtrl, hint: "Address", icon: Icons.home_rounded),
+                    _field(controller: emergencyCtrl, hint: "Emergency Contact", icon: Icons.emergency_rounded, keyboard: TextInputType.phone),
+                  ],
 
-                  const SizedBox(height: 10),
-                  _muslimahBox(),
+                  if (_isTransporter) ...[
+                    const SizedBox(height: 6),
+                    _sectionTitle("4. SELECT VEHICLE TYPE"),
+                    const SizedBox(height: 10),
+                    _vehicleSelector(),
+
+                    const SizedBox(height: 16),
+                    _sectionTitle("5. VEHICLE DETAILS"),
+                    const SizedBox(height: 10),
+                    _field(controller: modelCtrl, hint: "Model (e.g. Perodua Bezza Blue)", icon: Icons.directions_car_rounded),
+                    _field(controller: plateCtrl, hint: "Plate Number (e.g. VAA 1234)", icon: Icons.pin_rounded),
+
+                    const SizedBox(height: 10),
+                    _muslimahBox(),
+                  ],
 
                   const SizedBox(height: 18),
-                  _sectionTitle("4. VERIFY DOCUMENTS"),
+                  _sectionTitle(_isTransporter ? "6. UPLOAD DOKUMEN WAJIB" : "4. UPLOAD DOKUMEN"),
                   const SizedBox(height: 10),
                   _docGrid(),
 
@@ -198,13 +243,31 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            "Driver Register",
-            style: TextStyle(
-              color: _textMain,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: border),
+                ),
+                child: _brandLogo(size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Driver Register",
+                  style: TextStyle(
+                    color: _textMain,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         _iconBtn(
@@ -269,6 +332,27 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: _isDark ? Colors.white.withAlpha(10) : Colors.white,
+                    border: Border.all(color: border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isDark ? Colors.black : Colors.black).withAlpha(_isDark ? 90 : 18),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      )
+                    ],
+                  ),
+                  child: _brandLogo(size: 46),
+                ),
+              ),
+              const SizedBox(height: 14),
               Text(
                 "Drive & Earn",
                 textAlign: TextAlign.center,
@@ -284,7 +368,7 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                "Join the elite transport team.",
+                "Register as a service provider.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _isDark ? const Color(0xFF94A3B8) : Colors.black.withAlpha(140),
@@ -366,6 +450,116 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _serviceSelector() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: _Services.all.map((s) {
+        final selected = selectedService == s.key;
+        final bg = selected
+            ? s.accent.withAlpha(_isDark ? 45 : 32)
+            : (_isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(4));
+        final border = selected
+            ? s.accent.withAlpha(200)
+            : (_isDark ? Colors.white.withAlpha(18) : Colors.black.withAlpha(12));
+
+        return GestureDetector(
+          onTap: () => setState(() => selectedService = s.key),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: border),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: s.accent.withAlpha(_isDark ? 38 : 20),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(s.icon, size: 18, color: selected ? s.accent : _muted),
+                const SizedBox(width: 8),
+                Text(
+                  s.label,
+                  style: TextStyle(
+                    color: _textMain,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+                if (selected) ...[
+                  const SizedBox(width: 6),
+                  Icon(Icons.check_circle_rounded, size: 16, color: s.accent),
+                ]
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _serviceRequirementNote() {
+    final s = _Services.byKey(selectedService);
+    final border = _isDark ? Colors.white.withAlpha(14) : Colors.black.withAlpha(10);
+    final bg = _isDark ? Colors.white.withAlpha(6) : Colors.black.withAlpha(4);
+
+    final lines = _isTransporter
+        ? const [
+            "Transporter: strict verification",
+            "• Full name, IC/passport, address, emergency contact",
+            "• Upload selfie + IC (front/back)",
+            "• Driving license (front/back)",
+            "• Vehicle details (plate, model, etc.)",
+          ]
+        : [
+            "${s.label}: simple verification",
+            "• Nama + (Matric jika ada)",
+            "• Upload gambar kad matric",
+          ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+        color: bg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_rounded, color: s.accent),
+              const SizedBox(width: 8),
+              Text(
+                "Requirements",
+                style: TextStyle(color: _textMain, fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...lines.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  t,
+                  style: TextStyle(color: _muted, fontWeight: FontWeight.w700, height: 1.25),
+                ),
+              )),
+        ],
+      ),
     );
   }
 
@@ -501,30 +695,45 @@ class _DriverRegisterScreenState extends State<DriverRegisterScreen> {
     );
   }
 
-Widget _docGrid() {
+  Widget _docGrid() {
+    if (!_isTransporter) {
+      return Column(
+        children: [
+          _docTile(
+            title: "Kad Matric",
+            subtitle: matricCard?.name ?? "Upload gambar",
+            ok: matricCard != null,
+            icon: Icons.badge_rounded,
+            preview: matricCard?.bytes,
+            onTap: () => _pickDoc(onPicked: (d) => matricCard = d),
+          ),
+        ],
+      );
+    }
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: _docTile(
-                title: "Matric Card",
-                subtitle: matricCard?.name ?? "Upload photo",
-                ok: matricCard != null,
-                icon: Icons.badge_rounded,
-                preview: matricCard?.bytes,
-                onTap: () => _pickDoc(onPicked: (d) => matricCard = d),
+                title: "Selfie",
+                subtitle: selfie?.name ?? "Upload gambar",
+                ok: selfie != null,
+                icon: Icons.camera_alt_rounded,
+                preview: selfie?.bytes,
+                onTap: () => _pickDoc(onPicked: (d) => selfie = d),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _docTile(
-                title: "Driving License",
-                subtitle: license?.name ?? "Upload photo",
-                ok: license != null,
-                icon: Icons.credit_card_rounded,
-                preview: license?.bytes,
-                onTap: () => _pickDoc(onPicked: (d) => license = d),
+                title: "IC Front",
+                subtitle: icFront?.name ?? "Upload gambar",
+                ok: icFront != null,
+                icon: Icons.perm_identity_rounded,
+                preview: icFront?.bytes,
+                onTap: () => _pickDoc(onPicked: (d) => icFront = d),
               ),
             ),
           ],
@@ -534,26 +743,35 @@ Widget _docGrid() {
           children: [
             Expanded(
               child: _docTile(
-                title: "IC Front",
-                subtitle: icFront?.name ?? "Upload photo",
-                ok: icFront != null,
-                icon: Icons.perm_identity_rounded,
-                preview: icFront?.bytes,
-                onTap: () => _pickDoc(onPicked: (d) => icFront = d),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _docTile(
                 title: "IC Back",
-                subtitle: icBack?.name ?? "Upload photo",
+                subtitle: icBack?.name ?? "Upload gambar",
                 ok: icBack != null,
                 icon: Icons.perm_identity_rounded,
                 preview: icBack?.bytes,
                 onTap: () => _pickDoc(onPicked: (d) => icBack = d),
               ),
             ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _docTile(
+                title: "License Front",
+                subtitle: licenseFront?.name ?? "Upload gambar",
+                ok: licenseFront != null,
+                icon: Icons.credit_card_rounded,
+                preview: licenseFront?.bytes,
+                onTap: () => _pickDoc(onPicked: (d) => licenseFront = d),
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _docTile(
+          title: "License Back",
+          subtitle: licenseBack?.name ?? "Upload gambar",
+          ok: licenseBack != null,
+          icon: Icons.credit_card_rounded,
+          preview: licenseBack?.bytes,
+          onTap: () => _pickDoc(onPicked: (d) => licenseBack = d),
         ),
       ],
     );
@@ -626,7 +844,9 @@ Widget _docGrid() {
         color: _isDark ? Colors.white.withAlpha(6) : Colors.black.withAlpha(4),
       ),
       child: Text(
-        "By submitting, you agree to follow Uniserve safety guidelines and confirm you have a valid driving license.",
+        _isTransporter
+            ? "Dengan submit, anda setuju ikut garis panduan keselamatan & mengesahkan lesen memandu sah. Dokumen akan disemak (auto + manual)."
+            : "Dengan submit, maklumat anda akan disemak ringkas. Jika approved, dashboard servis akan muncul dekat Home.",
         textAlign: TextAlign.center,
         style: TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: 12, height: 1.4),
       ),
@@ -637,7 +857,9 @@ Widget _docGrid() {
     final bg = _isDark ? UColors.darkGlass : UColors.lightGlass;
     final border = _isDark ? UColors.darkBorder : UColors.lightBorder;
 
-    final allDocsOk = matricCard != null && license != null && icFront != null && icBack != null;
+    final allDocsOk = _isTransporter
+        ? (selfie != null && icFront != null && icBack != null && licenseFront != null && licenseBack != null)
+        : (matricCard != null);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
@@ -726,7 +948,11 @@ Widget _docGrid() {
           ),
           const SizedBox(height: 8),
           Text(
-            allDocsOk ? "All documents ready ✅" : "Please upload Matric + License + IC front/back",
+            allDocsOk
+                ? "Documents ready ✅"
+                : (_isTransporter
+                    ? "Upload Selfie + IC front/back + License front/back"
+                    : "Upload Kad Matric dulu"),
             style: TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: 11),
           ),
         ],
@@ -741,24 +967,51 @@ Widget _docGrid() {
     final model = modelCtrl.text.trim();
     final plate = plateCtrl.text.trim();
 
-    if (name.isEmpty || matric.isEmpty || phone.isEmpty || model.isEmpty || plate.isEmpty) {
-      _snack("Please complete all fields!");
+    final idNo = idCtrl.text.trim();
+    final addr = addressCtrl.text.trim();
+    final emergency = emergencyCtrl.text.trim();
+
+    if (name.isEmpty || phone.isEmpty) {
+      _snack("Isi nama & nombor WhatsApp dulu.");
       return;
     }
+
+    if (_isTransporter) {
+      if (idNo.isEmpty || addr.isEmpty || emergency.isEmpty || model.isEmpty || plate.isEmpty) {
+        _snack("Lengkapkan maklumat transporter (IC, address, emergency, vehicle). ");
+        return;
+      }
+    }
+
     if (!allDocsOk) {
-      _snack("Upload Matric + License + IC front/back dulu.");
+      _snack(_isTransporter ? "Upload Selfie + IC + License dulu." : "Upload Kad Matric dulu.");
       return;
     }
 
     setState(() => submitting = true);
 
     // simulate process (replace with DB later)
-    await Future.delayed(const Duration(milliseconds: 900));
+    await Future.delayed(const Duration(milliseconds: 450));
     if (!mounted) return;
 
     setState(() => submitting = false);
 
-    final summary = _buildSummary(name, matric, phone, model, plate);
+    // frontend demo: persist driver mode in-memory
+    DriverModeStore.isMuslimahDriver.value = muslimah;
+
+    // Demo approval pipeline (auto-approve)
+    await DriverModeStore.submitApplication(selectedService);
+
+    final summary = _buildSummary(
+      name: name,
+      matric: matric,
+      phone: phone,
+      idNo: idNo,
+      address: addr,
+      emergency: emergency,
+      model: model,
+      plate: plate,
+    );
     await Clipboard.setData(ClipboardData(text: summary));
 
     if (!mounted) return;
@@ -768,12 +1021,15 @@ Widget _docGrid() {
         backgroundColor: _isDark ? const Color(0xFF0B1220) : Colors.white,
         title: Text("Submitted ✅", style: TextStyle(color: _textMain, fontWeight: FontWeight.w900)),
         content: Text(
-          "Details copied to clipboard.\n\nPaste to admin/DB later.\n\n(Next step: connect database).",
+          "Permohonan anda dihantar. (Demo: auto-approved)\n\nDetails copied to clipboard untuk admin/DB nanti.",
           style: TextStyle(color: _muted, fontWeight: FontWeight.w600),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.maybePop(context);
+            },
             child: const Text("OK"),
           ),
         ],
@@ -781,19 +1037,44 @@ Widget _docGrid() {
     );
   }
 
-  String _buildSummary(String name, String matric, String phone, String model, String plate) {
-    return [
-      "UNISERVE DRIVER APPLICATION",
+  String _buildSummary({
+    required String name,
+    required String matric,
+    required String phone,
+    required String idNo,
+    required String address,
+    required String emergency,
+    required String model,
+    required String plate,
+  }) {
+    final s = _Services.byKey(selectedService);
+    final lines = <String>[
+      "UNISERVE PROVIDER APPLICATION",
       "--------------------------",
+      "Service: ${s.label} (${s.key})",
       "Name: $name",
-      "Matric: $matric",
+      if (matric.isNotEmpty) "Matric: $matric",
       "Phone: $phone",
-      "Vehicle: $selectedVehicle",
-      "Model: $model",
-      "Plate: $plate",
-      "Mode: ${muslimah ? "Muslimah Driver (Ladies Only)" : "Standard Driver"}",
-      "Docs: MatricCard ✅ | License ✅ | IC Front ✅ | IC Back ✅",
-    ].join("\n");
+    ];
+
+    if (_isTransporter) {
+      lines.addAll([
+        "IC/Passport: $idNo",
+        "Address: $address",
+        "Emergency: $emergency",
+        "Vehicle: $selectedVehicle",
+        "Model: $model",
+        "Plate: $plate",
+        "Mode: ${muslimah ? "Muslimah Driver (Ladies Only)" : "Standard Driver"}",
+        "Docs: Selfie ✅ | IC Front ✅ | IC Back ✅ | License F ✅ | License B ✅",
+      ]);
+    } else {
+      lines.addAll([
+        "Docs: Matric Card ✅",
+      ]);
+    }
+
+    return lines.join("\n");
   }
 
   void _snack(String msg) {
@@ -829,6 +1110,67 @@ Widget _docGrid() {
   }
 }
 
+class _ServiceItem {
+  final String key;
+  final String label;
+  final IconData icon;
+  final Color accent;
+  const _ServiceItem({
+    required this.key,
+    required this.label,
+    required this.icon,
+    required this.accent,
+  });
+}
+
+class _Services {
+  static const transporter = _ServiceItem(
+    key: 'transporter',
+    label: 'Transporter',
+    icon: Icons.local_shipping_rounded,
+    accent: Color(0xFF2563EB),
+  );
+  static const runner = _ServiceItem(
+    key: 'runner',
+    label: 'Runner',
+    icon: Icons.directions_run_rounded,
+    accent: UColors.cyan,
+  );
+  static const parcel = _ServiceItem(
+    key: 'parcel',
+    label: 'Parcel',
+    icon: Icons.inventory_2_rounded,
+    accent: UColors.gold,
+  );
+  static const express = _ServiceItem(
+    key: 'express',
+    label: 'Express',
+    icon: Icons.flash_on_rounded,
+    accent: UColors.purple,
+  );
+  static const printing = _ServiceItem(
+    key: 'printing',
+    label: 'Printing',
+    icon: Icons.print_rounded,
+    accent: UColors.success,
+  );
+  static const photo = _ServiceItem(
+    key: 'photo',
+    label: 'Photo',
+    icon: Icons.photo_camera_rounded,
+    accent: UColors.pink,
+  );
+
+  static const all = <_ServiceItem>[transporter, runner, parcel, express, printing, photo];
+
+  static _ServiceItem byKey(String key) {
+    return all.firstWhere(
+      (s) => s.key == key,
+      orElse: () => transporter,
+    );
+  }
+}
+
 class _PickedDoc {
   final String name;
   final Uint8List? bytes; // for web + preview
@@ -841,4 +1183,3 @@ class _PickedDoc {
     required this.size,
   });
 }
-

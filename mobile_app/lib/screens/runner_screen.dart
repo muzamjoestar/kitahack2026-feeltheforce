@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
+import 'chat_inbox_screen.dart';
+
 
 class RunnerScreen extends StatefulWidget {
   const RunnerScreen({super.key});
@@ -925,6 +927,9 @@ class _RunnerScreenState extends State<RunnerScreen> {
       return;
     }
 
+    // Build a simple summary for the request (frontend demo).
+    String summary;
+    String shopName = "";
     if (tab == "menu") {
       final shop = selectedShop;
       if (shop == null) {
@@ -935,6 +940,8 @@ class _RunnerScreenState extends State<RunnerScreen> {
         _toast("Add at least 1 item.");
         return;
       }
+      shopName = shop.name;
+      summary = "$itemsTotal item(s) from ${shop.name}";
     } else {
       if (manualOrderCtrl.text.trim().isEmpty) {
         _toast("Type your custom order.");
@@ -944,9 +951,21 @@ class _RunnerScreenState extends State<RunnerScreen> {
         _toast("Fill estimated food price.");
         return;
       }
+      summary = manualOrderCtrl.text.trim();
     }
 
-    _toast("Order sent ✅ (local). Nanti DB boleh sambung.");
+    final orderId = DateTime.now().millisecondsSinceEpoch.toString();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RunnerFindingScreen(
+          orderId: orderId,
+          shopName: shopName,
+          summary: summary,
+          deliveryLocation: locationCtrl.text.trim(),
+        ),
+      ),
+    );
   }
 
   void _toast(String msg) {
@@ -959,6 +978,313 @@ class _RunnerScreenState extends State<RunnerScreen> {
     );
   }
 }
+
+
+// ---------------- Runner Matching (GrabFood-like) ----------------
+
+class RunnerFindingScreen extends StatefulWidget {
+  final String orderId;
+  final String shopName;
+  final String summary;
+  final String deliveryLocation;
+
+  const RunnerFindingScreen({
+    super.key,
+    required this.orderId,
+    required this.shopName,
+    required this.summary,
+    required this.deliveryLocation,
+  });
+
+  @override
+  State<RunnerFindingScreen> createState() => _RunnerFindingScreenState();
+}
+
+class _RunnerFindingScreenState extends State<RunnerFindingScreen> {
+  bool _matched = false;
+  bool _cancelled = false;
+
+  // demo runner details
+  final String _runnerName = "Aina";
+  final double _runnerRating = 4.9;
+  final int _etaMin = 6;
+
+  @override
+  void initState() {
+    super.initState();
+    // Demo: auto-match after a few seconds (replace with backend realtime later).
+    Future.delayed(const Duration(seconds: 6), () {
+      if (!mounted || _cancelled) return;
+      setState(() => _matched = true);
+    });
+  }
+
+  Future<void> _confirmCancel() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Cancel request?"),
+        content: const Text("We’ll stop looking for a runner."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("No")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Yes, cancel")),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      setState(() => _cancelled = true);
+      Navigator.pop(context); // back to runner screen
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = UColors.teal;
+    final bg = isDark ? const Color(0xFF070A10) : const Color(0xFFF7F8FB);
+
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        await _confirmCancel();
+      },
+      child: Scaffold(
+        backgroundColor: bg,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: _confirmCancel,
+          ),
+          title: Text(_matched ? "Runner found" : "Looking for runner…"),
+          actions: [
+            if (!_matched)
+              TextButton(
+                onPressed: _confirmCancel,
+                child: const Text("Cancel"),
+              ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // status card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: isDark ? UColors.darkGlass : UColors.lightGlass,
+                  border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (!_matched)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Icon(Icons.verified, color: accent),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _matched ? "A runner is on the way" : "Searching nearby runners",
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      widget.shopName.isEmpty ? "Custom order" : widget.shopName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.summary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 18),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            widget.deliveryLocation,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // progress steps (Grab-ish)
+              _StepsCard(matched: _matched),
+
+              const SizedBox(height: 14),
+
+              if (_matched)
+                _RunnerCard(
+                  runnerName: _runnerName,
+                  rating: _runnerRating,
+                  etaMin: _etaMin,
+                  onChat: () {
+                    // Open your existing inbox. Backend later should open thread by orderId.
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatInboxScreen()),
+                    );
+                  },
+                ),
+
+              const Spacer(),
+
+              if (!_matched)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _confirmCancel,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text("Cancel request"),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StepsCard extends StatelessWidget {
+  final bool matched;
+  const _StepsCard({required this.matched});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? UColors.darkGlass : UColors.lightGlass;
+    final border = isDark ? Colors.white10 : Colors.black12;
+
+    Widget step(String title, bool done) {
+      return Row(
+        children: [
+          Icon(done ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 18, color: done ? UColors.teal : (isDark ? Colors.white38 : Colors.black38)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          )
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: bg,
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        children: [
+          step("Request sent", true),
+          const SizedBox(height: 10),
+          step("Looking for runner", !matched),
+          const SizedBox(height: 10),
+          step("Runner accepted", matched),
+        ],
+      ),
+    );
+  }
+}
+
+class _RunnerCard extends StatelessWidget {
+  final String runnerName;
+  final double rating;
+  final int etaMin;
+  final VoidCallback onChat;
+
+  const _RunnerCard({
+    required this.runnerName,
+    required this.rating,
+    required this.etaMin,
+    required this.onChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? UColors.darkGlass : UColors.lightGlass;
+    final border = isDark ? Colors.white10 : Colors.black12;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: bg,
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: UColors.teal,
+            child: Text(runnerName.characters.first.toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(runnerName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text("⭐ $rating • ETA $etaMin min",
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton(onPressed: onChat, icon: const Icon(Icons.chat_bubble_outline)),
+        ],
+      ),
+    );
+  }
+}
+
 
 // ---------------- Models ----------------
 
