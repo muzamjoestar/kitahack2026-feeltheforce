@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, status
 import google.generativeai as genai
 from scanner import analyze_card
-from schemas import MatricCardDetails, MatricCardResponse
+from schemas import MatricCardDetails, MatricCardResponse, ServiceDescriptionRequest, ServiceDescriptionResponse
 import os
 import traceback
 from dotenv import load_dotenv
@@ -58,3 +58,19 @@ async def verify_matric_card(file: UploadFile = File(...),
         print("🔥🔥🔥 CRITICAL SERVER ERROR:")
         print(traceback.format_exc())
         return MatricCardResponse(valid=False, message=f"Internal Server Error: {str(e)}")
+
+@app.post("/generate-description", response_model=ServiceDescriptionResponse)
+async def generate_description(request: ServiceDescriptionRequest, model = Depends(get_gemini_api)):
+    prompt = f"""
+    Write a professional, catchy, and concise service description paragraph (approx 50-80 words) for a service titled "{request.title}".
+    
+    Rough idea provided by user:
+    "{request.rough_idea}"
+    
+    The tone should be inviting and trustworthy.
+    """
+    try:
+        response = await model.generate_content_async(prompt)
+        return ServiceDescriptionResponse(description=response.text.strip())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -10,3 +10,10 @@ class MatricCardResponse(BaseModel):
     valid: bool
     details: Optional[MatricCardDetails] = None
     message: str
+
+class ServiceDescriptionRequest(BaseModel):
+    title: str
+    rough_idea: str
+
+class ServiceDescriptionResponse(BaseModel):
+    description: str
