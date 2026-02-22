@@ -86,7 +86,7 @@ class PremiumStepper extends StatelessWidget {
       if (cancelled) return UColors.danger;
       if (i < activeIndex) return UColors.success;
       if (i == activeIndex) return UColors.teal;
-      return muted.withOpacity(.45);
+      return muted.withValues(alpha: .45);
     }
 
     return Column(
@@ -108,7 +108,7 @@ class PremiumStepper extends StatelessWidget {
                       child: Container(
                         height: 2,
                         margin: const EdgeInsets.symmetric(horizontal: 8),
-                        color: dot(i + 1).withOpacity(.5),
+                        color: dot(i + 1).withValues(alpha: .5),
                       ),
                     ),
                 ],

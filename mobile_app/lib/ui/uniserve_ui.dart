@@ -143,6 +143,10 @@ class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
   final BorderRadius radius;
+  /// Preferred name used across screens.
+  /// Optional for backward compatibility.
+  final Color? border;
+  /// Backward-compatible alias used by older code.
   final Color? borderColor;
   final Color? bg;
   final Gradient? gradient;
@@ -152,6 +156,7 @@ class GlassCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(18),
     this.radius = const BorderRadius.all(Radius.circular(22)),
+    this.border,
     this.borderColor,
     this.bg,
     this.gradient,
@@ -160,7 +165,9 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final b = borderColor ?? (isDark ? UColors.darkBorder : UColors.lightBorder);
+    final b = border ??
+        borderColor ??
+        (isDark ? UColors.darkBorder : UColors.lightBorder);
     final background = bg ?? (isDark ? UColors.darkGlass : UColors.lightGlass);
 
     return ClipRRect(
@@ -305,18 +312,24 @@ class IconSquareButton extends StatelessWidget {
 class PrimaryButton extends StatelessWidget {
   final String text;
   final IconData? icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color bg;
   final Color fg;
 
   const PrimaryButton({
     super.key,
-    required this.text,
-    required this.onTap,
+    String? text,
+    // Backward-compatible aliases used by some screens
+    String? label,
+    VoidCallback? onTap,
+    VoidCallback? onPressed,
     this.icon,
     this.bg = UColors.gold,
     this.fg = Colors.black,
-  });
+  })  : text = (text ?? label ?? ''),
+        onTap = (onTap ?? onPressed),
+        assert(text != null || label != null, 'PrimaryButton requires text/label.'),
+        assert(onTap != null || onPressed != null, 'PrimaryButton requires onTap/onPressed.');
 
   @override
   Widget build(BuildContext context) {
