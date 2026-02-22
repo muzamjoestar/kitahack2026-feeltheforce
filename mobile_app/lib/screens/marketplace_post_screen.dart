@@ -1,9 +1,10 @@
-import 'dart:typed_data';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
-import '../ui/uniserve_ui.dart';
-import '../theme/colors.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class MarketplacePostScreen extends StatefulWidget {
   const MarketplacePostScreen({super.key});
@@ -13,326 +14,387 @@ class MarketplacePostScreen extends StatefulWidget {
 }
 
 class _MarketplacePostScreenState extends State<MarketplacePostScreen> {
-  final titleC = TextEditingController();
-  final subtitleC = TextEditingController();
-  final priceC = TextEditingController();
-  final locationC = TextEditingController();
-  final descC = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _ideaController = TextEditingController();
+  final _descController = TextEditingController();
+  final _priceController = TextEditingController();
 
-  String cat = 'Services';
+  bool _isGenerating = false;
+  File? _selectedImage;
+  String? _selectedCategory;
+  bool _isStartingPrice = false;
 
-  Uint8List? _imageBytes;
-  String? _imageName;
+  final List<String> _categories = [
+    'Food Delivery',
+    'Printing',
+    'Runner',
+    'Tutoring',
+    'IT Repair',
+    'Graphic Design',
+    'Transport',
+    'Other'
+  ];
 
   @override
   void dispose() {
-    titleC.dispose();
-    subtitleC.dispose();
-    priceC.dispose();
-    locationC.dispose();
-    descC.dispose();
+    _titleController.dispose();
+    _ideaController.dispose();
+    _descController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(milliseconds: 900)),
+  /// Opens the camera to take a picture
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: source);
+
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      debugPrint("Image Picker Error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to capture photo: $e')),
+      );
+    }
+  }
+
+  void _showImageSourceModal() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  IconData _iconByCat(String c) {
-    switch (c) {
-      case 'Food':
-        return Icons.restaurant_rounded;
-      case 'Services':
-        return Icons.handyman_rounded;
-      case 'Shops':
-        return Icons.shopping_bag_rounded;
-      case 'Rent':
-        return Icons.key_rounded;
-      case 'Tickets':
-        return Icons.confirmation_number_rounded;
-      default:
-        return Icons.storefront_rounded;
-    }
-  }
-
-  Future<void> _pickImage() async {
-    try {
-      final picker = ImagePicker();
-      final XFile? file = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-      if (file == null) return;
-
-      final bytes = await file.readAsBytes();
-      if (!mounted) return;
-
-      setState(() {
-        _imageBytes = bytes;
-        _imageName = file.name;
-      });
-    } catch (_) {
-      _toast('Tak boleh pilih gambar. Cuba run semula.');
-    }
-  }
-
-  void _removeImage() {
-    setState(() {
-      _imageBytes = null;
-      _imageName = null;
-    });
-  }
-
-  void _publish() {
-    final title = titleC.text.trim();
-    final subtitle = subtitleC.text.trim();
-    final location = locationC.text.trim();
-    final desc = descC.text.trim();
+  /// Calls the Gemini API to generate a description
+  Future<void> _generateDescription() async {
+    final title = _titleController.text.trim();
+    final roughIdea = _ideaController.text.trim();
 
     if (title.isEmpty) {
-      _toast('Title wajib isi');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a Service Title first!')),
+      );
       return;
     }
 
-    final p = double.tryParse(priceC.text.trim());
-    if (p == null) {
-      _toast('Price tak valid');
-      return;
+    setState(() => _isGenerating = true);
+
+    try {
+      // Use 10.0.2.2 for Android Emulator to access localhost
+      final baseUrl = dotenv.env['API_URL'] ?? 'http://10.0.2.2:8000';
+      final url = Uri.parse('$baseUrl/generate-description');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'title': title,
+          'rough_idea': roughIdea.isEmpty ? title : roughIdea,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final description = data['description'] as String;
+
+        // Trigger the magic typewriter effect
+        _animateText(description);
+      } else {
+        throw Exception('Failed to generate: ${response.body}');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() => _isGenerating = false);
     }
+  }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    // TODO BACKEND (nanti):
-    // 1) Upload _imageBytes ke storage -> dapatkan imageUrl
-    // 2) POST /marketplace/posts simpan title/desc/price/cat/location/imageUrl/userId
-    final post = <String, dynamic>{
-      'id': 'mp_$now',
-      'title': title,
-      'subtitle': subtitle.isEmpty ? 'New • just posted' : subtitle,
-      'cat': cat,
-      'price': p,
-      'rating': 5.0, // frontend default
-      'accent': UColors.gold,
-      'icon': _iconByCat(cat),
-      'createdAt': now,
-      'isMine': true,
-      'seller': 'You',
-      'location': location.isEmpty ? 'Campus' : location,
-      'desc': desc,
-      'phone': '',
-
-      // ✅ frontend image (bytes) for preview/listing
-      'imageBytes': _imageBytes,
-      'imageName': _imageName ?? '',
-
-      // ✅ backend nanti akan guna url
-      'imageUrl': '',
-    };
-
-    Navigator.of(context).pop(post);
+  /// Magically types out the text character by character
+  void _animateText(String text) {
+    _descController.clear();
+    int i = 0;
+    Timer.periodic(const Duration(milliseconds: 25), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (i < text.length) {
+        setState(() {
+          _descController.text += text[i];
+          // Keep cursor at the end
+          _descController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _descController.text.length),
+          );
+        });
+        i++;
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textMain = isDark ? UColors.darkText : UColors.lightText;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final inputBg =
+        isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100;
+    final borderSide = BorderSide(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.15)
+            : Colors.grey.shade300);
+    final inputBorder = OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12), borderSide: borderSide);
 
     return Scaffold(
-      backgroundColor: isDark ? UColors.darkBg : UColors.lightBg,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: const Text('Add New Service',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
-        iconTheme: IconThemeData(color: textMain),
-        title: Text('Post Service', style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GlassCard(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Category', muted),
-                    const SizedBox(height: 8),
-                    _dropdown(textMain, muted),
-                    const SizedBox(height: 12),
-
-                    _label('Title*', muted),
-                    const SizedBox(height: 8),
-                    _field(titleC, 'Contoh: Print & Binding', textMain, muted),
-                    const SizedBox(height: 12),
-
-                    _label('Subtitle', muted),
-                    const SizedBox(height: 8),
-                    _field(subtitleC, 'Contoh: Fast • same day', textMain, muted),
-                    const SizedBox(height: 12),
-
-                    _label('Price (RM)*', muted),
-                    const SizedBox(height: 8),
-                    _field(priceC, 'Contoh: 12.50', textMain, muted, keyboard: TextInputType.number),
-                    const SizedBox(height: 12),
-
-                    _label('Location', muted),
-                    const SizedBox(height: 8),
-                    _field(locationC, 'Contoh: Zubair Block D 3.2', textMain, muted),
-                    const SizedBox(height: 12),
-
-                    _label('Image (upload)', muted),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: PrimaryButton(
-                            text: _imageBytes == null ? 'Upload image' : 'Change image',
-                            icon: Icons.image_rounded,
-                            onTap: _pickImage,
-                          ),
+              GestureDetector(
+                onTap: _showImageSourceModal,
+                child: Container(
+                  height: 180,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: inputBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                  ),
+                  child: _selectedImage != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.camera_alt,
+                                size: 40, color: Color(0xFFF4C430)),
+                            SizedBox(height: 8),
+                            Text("Tap to take a photo or upload from gallery",
+                                style: TextStyle(color: Colors.grey)),
+                          ],
                         ),
-                        if (_imageBytes != null) ...[
-                          const SizedBox(width: 10),
-                          IconSquareButton(
-                            icon: Icons.delete_outline_rounded,
-                            onTap: _removeImage,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _preview(muted),
-                    const SizedBox(height: 12),
-
-                    _label('Description', muted),
-                    const SizedBox(height: 8),
-                    _field(descC, 'Detail service, masa siap, syarat, dll.', textMain, muted, maxLines: 4),
-
-                    const SizedBox(height: 14),
-                    PrimaryButton(
-                      text: 'Publish',
-                      icon: Icons.cloud_upload_rounded,
-                      onTap: _publish,
-                    ),
-                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'NOTE BACKEND (nanti):\n'
-                '• Upload gambar -> storage (Firebase Storage/S3) -> dapat imageUrl\n'
-                '• Simpan post ke database (title, price, cat, location, imageUrl, userId)',
-                style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 12.5, height: 1.35),
+              const SizedBox(height: 20),
+
+              // Category Dropdown
+              const Text("Category",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                items: _categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedCategory = val),
+                decoration: InputDecoration(
+                  hintText: 'Select Category',
+                  filled: true,
+                  fillColor: inputBg,
+                  border: inputBorder,
+                  enabledBorder: inputBorder,
+                  focusedBorder: inputBorder.copyWith(
+                      borderSide: const BorderSide(color: Color(0xFFF4C430))),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              const Text("Service Title",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  hintText: 'e.g., Print Runner, Barber, Graphic Design',
+                  filled: true,
+                  fillColor: inputBg,
+                  border: inputBorder,
+                  enabledBorder: inputBorder,
+                  focusedBorder: inputBorder.copyWith(
+                      borderSide: const BorderSide(color: Color(0xFFF4C430))),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text("Price (RM)",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _priceController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        hintText: 'e.g., 50.00',
+                        filled: true,
+                        fillColor: inputBg,
+                        border: inputBorder,
+                        enabledBorder: inputBorder,
+                        focusedBorder: inputBorder.copyWith(
+                            borderSide:
+                                const BorderSide(color: Color(0xFFF4C430))),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _isStartingPrice,
+                        activeColor: const Color(0xFFF4C430),
+                        onChanged: (val) =>
+                            setState(() => _isStartingPrice = val ?? false),
+                      ),
+                      const Text("Starting Price"),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text("Rough Idea (Keywords)",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _ideaController,
+                onChanged: (val) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'e.g., "Fast, cheap, Mahallah Ali"',
+                  filled: true,
+                  fillColor: inputBg,
+                  border: inputBorder,
+                  enabledBorder: inputBorder,
+                  focusedBorder: inputBorder.copyWith(
+                      borderSide: const BorderSide(color: Color(0xFFF4C430))),
+                  suffixIcon: _ideaController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () {
+                            _ideaController.clear();
+                            setState(() {});
+                          },
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Explicit AI Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isGenerating ? null : _generateDescription,
+                  icon: _isGenerating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Color(0xFFF4C430)))
+                      : const Icon(Icons.auto_awesome,
+                          color: Color(0xFFF4C430)),
+                  label: Text(
+                      _isGenerating
+                          ? "✨ Generating..."
+                          : "Auto-Generate Description",
+                      style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Description",
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _descController,
+                minLines: 8,
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'The AI generated text will appear here...',
+                  filled: true,
+                  fillColor: inputBg,
+                  border: inputBorder,
+                  enabledBorder: inputBorder,
+                  focusedBorder: inputBorder.copyWith(
+                      borderSide: const BorderSide(color: Color(0xFFF4C430))),
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // TODO: Submit logic
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Service Posted!')));
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF4C430),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text("Post Service",
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _label(String t, Color muted) => Text(t, style: TextStyle(color: muted, fontWeight: FontWeight.w800));
-
-  Widget _field(
-    TextEditingController c,
-    String hint,
-    Color textMain,
-    Color muted, {
-    int maxLines = 1,
-    TextInputType? keyboard,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: muted.withAlpha(60)),
-        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
-      ),
-      child: TextField(
-        controller: c,
-        keyboardType: keyboard,
-        maxLines: maxLines,
-        style: TextStyle(color: textMain, fontWeight: FontWeight.w700),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: muted, fontWeight: FontWeight.w700),
-          border: InputBorder.none,
-          isDense: true,
-        ),
-      ),
-    );
-  }
-
-  Widget _dropdown(Color textMain, Color muted) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: muted.withAlpha(60)),
-        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: cat,
-          dropdownColor: isDark ? const Color(0xFF0D0F14) : Colors.white,
-          iconEnabledColor: muted,
-          style: TextStyle(color: textMain, fontWeight: FontWeight.w800),
-          items: const [
-            DropdownMenuItem(value: 'Food', child: Text('Food')),
-            DropdownMenuItem(value: 'Services', child: Text('Services')),
-            DropdownMenuItem(value: 'Shops', child: Text('Shops')),
-            DropdownMenuItem(value: 'Rent', child: Text('Rent')),
-            DropdownMenuItem(value: 'Tickets', child: Text('Tickets')),
-          ],
-          onChanged: (v) => setState(() => cat = v ?? 'Services'),
-        ),
-      ),
-    );
-  }
-
-  Widget _preview(Color muted) {
-    if (_imageBytes == null) {
-      return Row(
-        children: [
-          Icon(Icons.image_outlined, color: muted),
-          const SizedBox(width: 8),
-          Text('Preview akan keluar lepas upload', style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-        ],
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.memory(_imageBytes!, fit: BoxFit.cover),
-            Positioned(
-              left: 10,
-              bottom: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  color: Colors.black.withValues(alpha: 0.45),
-                ),
-                child: Text(
-                  _imageName ?? 'image',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

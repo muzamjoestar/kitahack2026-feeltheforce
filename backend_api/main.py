@@ -61,16 +61,40 @@ async def verify_matric_card(file: UploadFile = File(...),
 
 @app.post("/generate-description", response_model=ServiceDescriptionResponse)
 async def generate_description(request: ServiceDescriptionRequest, model = Depends(get_gemini_api)):
-    prompt = f"""
-    Write a professional, catchy, and concise service description paragraph (approx 50-80 words) for a service titled "{request.title}".
-    
-    Rough idea provided by user:
-    "{request.rough_idea}"
-    
-    The tone should be inviting and trustworthy.
-    """
     try:
-        response = await model.generate_content_async(prompt)
-        return ServiceDescriptionResponse(description=response.text.strip())
+        # Build the prompt for Gemini
+        prompt = f"""
+        You are a smart AI copywriter for a university marketplace app.
+        
+        Service Title: {request.title}
+        Key Details: {request.rough_idea}
+        
+        Instructions:
+        1. **Language Detection**: 
+           - If the user's input is primarily English, generate the description in **English**.
+           - If the user's input is primarily Malay or Manglish, generate in **Manglish (Bahasa Rojak)**.
+           
+        2. **Tone Adaptation**:
+           - If the service seems professional (e.g., Tutoring, Proofreading, Design), use a **Semi-Formal/Professional** tone.
+           - If the service is casual (e.g., Runner, Food, Barber), use a **Casual, Fun, and Viral** tone.
+           
+        3. **Structure**:
+           - Hook (Problem/Question)
+           - Solution & Details (Price, Features)
+           - Call to Action (Contact/Location)
+           
+        4. **Formatting**:
+           - Use relevant emojis.
+           - Keep it under 100 words.
+        """
+        
+        # Call Gemini
+        response = model.generate_content(prompt)
+        
+        return {
+            "success": True,
+            "description": response.text.strip()
+        }
     except Exception as e:
+        # If Gemini fails, return the error gracefully
         raise HTTPException(status_code=500, detail=str(e))
