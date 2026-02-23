@@ -3,8 +3,8 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter/material.dart';
 
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
@@ -269,6 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 class _Ux {
   static const radius = 22.0;
   static const radiusSmall = 16.0;
+  static const pad = 16.0;
 
   static LinearGradient accentGradient(bool isDark) {
     // No gold — leaning to teal/cyan/purple like the rest of UniServe theme
@@ -296,6 +297,9 @@ class _Ux {
       ? Colors.white.withValues(alpha: 0.10)
       : Colors.black.withValues(alpha: 0.08);
 
+  static Color chipBg(bool isDark) => isDark
+      ? Colors.white.withValues(alpha: 0.08)
+      : Colors.black.withValues(alpha: 0.04);
 }
 
 extension _CtxX on BuildContext {
@@ -1211,6 +1215,7 @@ class _GyroTiltState extends State<_GyroTilt> {
   @override
   void initState() {
     super.initState();
+    // ignore: deprecated_member_use
     _sub = gyroscopeEvents.listen((e) {
       // map gyro speed -> rotation (smooth)
       final k = 0.22;
@@ -1873,7 +1878,7 @@ class _DangerZone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    _Ux.divider(isDark);
+    final stroke = _Ux.divider(isDark);
     final danger = UColors.danger;
     return Container(
       padding: const EdgeInsets.all(14),
