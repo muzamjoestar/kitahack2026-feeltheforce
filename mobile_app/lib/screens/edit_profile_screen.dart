@@ -18,6 +18,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
+  final _storage = FirebaseStorage.instance; // Firebase Storage (avatar upload)
 
   final _formKey = GlobalKey<FormState>();
 
