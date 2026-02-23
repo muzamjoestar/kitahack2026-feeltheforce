@@ -6,12 +6,12 @@ import 'package:flutter/services.dart';
 import '../ui/uniserve_ui.dart'; // ✅ UniservePillNav
 
 /// ===============================================================
-/// MESSAGES (Premium Grab-like) — Frontend only (in-memory)
+/// MESSAGES (Premium Grab-like) 
 /// ✅ Thread list (Transport / Runner / Marketplace / DM by matric)
 /// ✅ Swipe to delete
 /// ✅ Unread badge + total unread pill
 /// ✅ Search
-/// ✅ "Chat by Matric" bottom sheet (FIXED: no markNeedsBuild crash)
+/// ✅ "Chat by Matric" bottom sheet 
 /// ✅ Thread screen: bubbles + order banner (if thread has order info)
 ///
 /// TODO BACKEND (later):

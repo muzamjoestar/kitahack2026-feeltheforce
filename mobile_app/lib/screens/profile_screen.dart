@@ -3,8 +3,8 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 import '../theme/colors.dart';
 import '../ui/uniserve_ui.dart';
@@ -988,144 +988,261 @@ class _PassCard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         final w = c.maxWidth.isFinite ? c.maxWidth : MediaQuery.sizeOf(context).width;
-        final ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.25);
-        // Responsive height: avoid RenderFlex overflow on small devices / large text.
-        final h = max(210.0, min(280.0, w * 0.54 * ts));
+
+        // Respect accessibility text scale, but clamp supaya tak jadi pelik
+        final ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.35);
+
+        // ✅ Bigger, safer min height to avoid overflow (especially with large text scale)
+       final minH = 250.0 * ts;
+        final targetH = w * 0.58;
+        final h = max(minH, min(330.0, targetH));
 
         return Container(
           height: h,
-      decoration: BoxDecoration(
-        color: base,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: stroke),
-        boxShadow: [BoxShadow(blurRadius: 28, offset: const Offset(0, 18), color: Colors.black.withValues(alpha: 0.35))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF111827),
-                      const Color(0xFF0B1220),
-                      const Color(0xFF0F172A),
-                    ],
-                  ),
-                ),
+          decoration: BoxDecoration(
+            color: base,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: stroke),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 28,
+                offset: const Offset(0, 18),
+                color: Colors.black.withValues(alpha: 0.35),
               ),
-            ),
-            Positioned(
-              top: -40,
-              right: -40,
-              child: Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF2DD4BF).withValues(alpha: 0.20),
-                      const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                      const Color(0xFF8B5CF6).withValues(alpha: 0.10),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            AnimatedBuilder(
-              animation: scan,
-              builder: (context, _) {
-                final t = scan.value;
-                return Positioned(
-                  left: -80 + 400 * t,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 100,
-                    decoration: BoxDecoration(
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                         colors: [
-                          Colors.transparent,
-                          Colors.white.withValues(alpha: 0.10),
-                          Colors.transparent,
+                          Color(0xFF111827),
+                          Color(0xFF0B1220),
+                          Color(0xFF0F172A),
                         ],
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
 
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                Positioned(
+                  top: -40,
+                  right: -40,
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF2DD4BF).withValues(alpha: 0.20),
+                          const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                          const Color(0xFF8B5CF6).withValues(alpha: 0.10),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                AnimatedBuilder(
+                  animation: scan,
+                  builder: (context, _) {
+                    final t = scan.value;
+                    return Positioned(
+                      left: -80 + 400 * t,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.verified_rounded, size: 16, color: Colors.white),
-                            const SizedBox(width: 8),
-                            Text('UniServe ID', style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontWeight: FontWeight.w900, fontSize: 12)),
-                          ],
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.white.withValues(alpha: 0.10),
+                              Colors.transparent,
+                            ],
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                    );
+                  },
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.all(14), // ✅ sikit kecil dari 16
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.verified_rounded, size: 16, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'UniServe ID',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            yearLabel,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.86),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
                       Text(
-                        yearLabel,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.86), fontWeight: FontWeight.w900, fontSize: 12),
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                      ),
+
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(child: _kv('Matric', matric)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _kv('Faculty', faculty)),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+                      _kv('Program', program),
+
+                      // ✅ IMPORTANT: buang Spacer() supaya tak paksa row bawah jadi overflow
+                      const SizedBox(height: 14),
+
+                      Row(
+                        children: [
+                          Expanded(child: _barcode(uid)),
+                          const SizedBox(width: 14),
+                          _qrStub(uid),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  Text(name, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(child: _kv('Matric', matric)),
-                      const SizedBox(width: 12),
-                      Expanded(child: _kv('Faculty', faculty)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _kv('Program', program),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(child: _barcode(uid)),
-                      const SizedBox(width: 14),
-                      _qrStub(uid),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
         );
       },
     );
   }
+
+  Widget _kv(String k, String v) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          k.toUpperCase(),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.62),
+            fontWeight: FontWeight.w900,
+            fontSize: 10,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          v.isEmpty ? '—' : v,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.94),
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _barcode(String value) {
+    final bars = value.isEmpty ? 24 : (value.codeUnits.fold<int>(0, (p, c) => p + c) % 28) + 18;
+    return Container(
+      height: 36, // ✅ turun sikit dari 42
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: List.generate(bars, (i) {
+          final thick = (i % 3 == 0) || (i % 7 == 0);
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: thick ? 0.6 : 0.9),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: thick ? 0.75 : 0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _qrStub(String seed) {
+    final n = seed.isEmpty ? 7 : (seed.codeUnits.fold<int>(0, (p, c) => p + c) % 9) + 6;
+    return Container(
+      width: 52,
+      height: 52,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: GridView.count(
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: n,
+        mainAxisSpacing: 1,
+        crossAxisSpacing: 1,
+        children: List.generate(n * n, (i) {
+          final on = (i % 3 == 0) || (i % 7 == 0) || ((i + n) % 11 == 0);
+          return DecoratedBox(decoration: BoxDecoration(color: on ? Colors.white : Colors.transparent));
+        }),
+      ),
+    );
+  }
+}
 
   Widget _kv(String k, String v) {
     return Column(
@@ -1169,9 +1286,9 @@ class _PassCard extends StatelessWidget {
   Widget _qrStub(String seed) {
     final n = seed.isEmpty ? 7 : (seed.codeUnits.fold<int>(0, (p, c) => p + c) % 9) + 6;
     return Container(
-      width: 52,
-      height: 52,
-      padding: const EdgeInsets.all(6),
+      width: 48,
+      height: 48,
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
@@ -1189,7 +1306,6 @@ class _PassCard extends StatelessWidget {
       ),
     );
   }
-}
 
 /* ========================================================================== */
 /*                                  TILT                                      */
@@ -1215,7 +1331,6 @@ class _GyroTiltState extends State<_GyroTilt> {
   @override
   void initState() {
     super.initState();
-    // ignore: deprecated_member_use
     _sub = gyroscopeEvents.listen((e) {
       // map gyro speed -> rotation (smooth)
       final k = 0.22;
