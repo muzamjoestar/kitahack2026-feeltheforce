@@ -43,7 +43,6 @@ import 'screens/privacy_policy_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/marketplace_screen.dart' as market;
 
-
 // 2. DEFINE THE NAVIGATOR KEY GLOBALLY
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -55,7 +54,7 @@ void main() async {
 
   // Initialize DotEnv (Moved before Firebase)
   try {
-    await dotenv.load(fileName: ".env");
+    await dotenv.load(fileName: ".env").timeout(const Duration(seconds: 2));
   } catch (e) {
     debugPrint("Warning: .env file not found or failed to load: $e");
   }
@@ -64,14 +63,18 @@ void main() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 5));
   } catch (e) {
     debugPrint("Firebase Init Error: $e");
   }
 
   // Initialize Cameras (Main Branch Contribution)
   try {
-    cameras = await availableCameras();
+    // Add timeout to prevent app from hanging if camera service is unresponsive
+    cameras = await availableCameras().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => <CameraDescription>[],
+    );
   } catch (e) {
     print("Camera Error: $e");
   }
@@ -147,7 +150,8 @@ class _UniserveAppState extends State<UniserveApp> {
       darkTheme: AppTheme.dark(),
 
       // Use your LoginScreen as the entry point
-      home: const SplashScreen(),
+      // home: const SplashScreen(),
+      home: HomeScreen(onToggleTheme: toggleTheme),
 
       routes: {
         '/login': (_) => const LoginScreen(),
@@ -177,6 +181,13 @@ class _UniserveAppState extends State<UniserveApp> {
         '/rental': (_) => const market.MarketplaceScreen(),
         '/scan': (_) => ScannerScreen(cameras: cameras),
         '/chat-inbox': (_) => const ChatInboxScreen(),
+      },
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            body: Center(child: Text('No route defined for ${settings.name}')),
+          ),
+        );
       },
     );
   }

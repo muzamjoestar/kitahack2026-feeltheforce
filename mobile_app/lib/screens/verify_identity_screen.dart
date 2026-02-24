@@ -1,170 +1,250 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../ui/uniserve_ui.dart';
 import '../theme/colors.dart';
-import '../state/auth_store.dart';
 
-class VerifyIdentityScreen extends StatefulWidget {
+class VerifyIdentityScreen extends StatelessWidget {
   const VerifyIdentityScreen({super.key});
-
-  @override
-  State<VerifyIdentityScreen> createState() => _VerifyIdentityScreenState();
-}
-
-class _VerifyIdentityScreenState extends State<VerifyIdentityScreen> {
-  PlatformFile? matric;
-  PlatformFile? ic;
-  PlatformFile? lesen;
-  bool submitting = false;
-
-  Future<void> _pick(String type) async {
-    final res = await FilePicker.platform.pickFiles(
-      withData: true, // web support
-      type: FileType.custom,
-      allowedExtensions: const ["jpg", "jpeg", "png", "pdf"],
-    );
-    if (res == null || res.files.isEmpty) return;
-
-    setState(() {
-      if (type == "matric") matric = res.files.first;
-      if (type == "ic") ic = res.files.first;
-      if (type == "lesen") lesen = res.files.first;
-    });
-  }
-
-  Future<void> _submit() async {
-    if (matric == null || ic == null || lesen == null) {
-      _toast("Upload matric + IC + lesen dulu");
-      return;
-    }
-
-    setState(() => submitting = true);
-
-    // TODO BACKEND:
-    // POST /verify with multipart: matric, ic, lesen
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    auth.markVerified();
-
-    if (!mounted) return;
-    setState(() => submitting = false);
-    _toast("Verified (stub) ✅");
-    Navigator.pushReplacementNamed(context, "/marketplace");
-  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Theme colors matching the app's premium aesthetic
+    final bg = isDark ? const Color(0xFF121212) : const Color(0xFFF5F5F7);
+    final textMain = isDark ? UColors.darkText : UColors.lightText;
     final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final cardBg = isDark ? UColors.darkCard : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
 
-    return PremiumScaffold(
-      title: "Verify Identity",
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GlassCard(
-            borderColor: UColors.gold.withAlpha(80),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Student Verification",
-                    style: TextStyle(
-                        color: muted,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                        fontSize: 11)),
-                const SizedBox(height: 6),
-                const Text(
-                  "Upload documents to unlock posting",
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon:
+              Icon(Icons.arrow_back_ios_new_rounded, color: textMain, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          "Verify Identity",
+          style: TextStyle(
+              color: textMain, fontWeight: FontWeight.w900, fontSize: 18),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: Column(
+          children: [
+            const SizedBox(height: 30),
+            // Hero Section
+            Center(
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  color: UColors.gold.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: UColors.gold.withOpacity(0.3), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: UColors.gold.withOpacity(0.15),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  "Backend team nanti sambung approval flow. Sekarang ni UI siap dulu.",
-                  style: TextStyle(color: muted, fontWeight: FontWeight.w700),
-                ),
-              ],
+                child: const Icon(Icons.badge_rounded,
+                    size: 52, color: UColors.gold),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 32),
+            Text(
+              "Let's get you verified",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: textMain,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Verify your student status to unlock driver mode, secure marketplace deals, and premium campus services.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: muted,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 48),
 
-          _uploadTile("Matric Card", matric, () => _pick("matric")),
-          const SizedBox(height: 10),
-          _uploadTile("IC", ic, () => _pick("ic")),
-          const SizedBox(height: 10),
-          _uploadTile("Driving License", lesen, () => _pick("lesen")),
-
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(
-              text: submitting ? "Submitting..." : "Submit Verification",
+            // Benefits Section
+            _FeatureTile(
+              icon: Icons.directions_car_rounded,
+              color: UColors.info,
+              title: "Driver Mode",
+              subtitle: "Earn money by accepting transport & delivery jobs.",
+              bg: cardBg,
+              border: border,
+              textMain: textMain,
+              muted: muted,
+            ),
+            const SizedBox(height: 16),
+            _FeatureTile(
               icon: Icons.verified_rounded,
-              onTap: submitting ? () {} : _submit,
-              bg: UColors.gold,
+              color: UColors.success,
+              title: "Verified Badge",
+              subtitle: "Build trust with a verified badge on your profile.",
+              bg: cardBg,
+              border: border,
+              textMain: textMain,
+              muted: muted,
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "Tip: lepas verified, listing kau akan dapat badge ✅",
-            style: TextStyle(color: muted, fontWeight: FontWeight.w700),
-          ),
-        ],
+            const SizedBox(height: 16),
+            _FeatureTile(
+              icon: Icons.lock_outline_rounded,
+              color: UColors.purple,
+              title: "Secure Access",
+              subtitle: "Exclusive access to student-only events and deals.",
+              bg: cardBg,
+              border: border,
+              textMain: textMain,
+              muted: muted,
+            ),
+
+            const SizedBox(height: 48),
+
+            // Action Button
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/scan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: UColors.gold,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  shadowColor: UColors.gold.withOpacity(0.4),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.qr_code_scanner_rounded, size: 22),
+                    SizedBox(width: 10),
+                    Text(
+                      "Scan Matric Card",
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Privacy Link
+            TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/privacy-policy'),
+              style: TextButton.styleFrom(
+                foregroundColor: muted,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.privacy_tip_outlined, size: 16),
+                  SizedBox(width: 8),
+                  Text("How we handle your data",
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _uploadTile(String title, PlatformFile? file, VoidCallback onPick) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+class _FeatureTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final Color bg;
+  final Color border;
+  final Color textMain;
+  final Color muted;
 
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
+  const _FeatureTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.bg,
+    required this.border,
+    required this.textMain,
+    required this.muted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: border),
+      ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(6),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withAlpha(18)),
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: color.withOpacity(0.2)),
             ),
-            child: Icon(
-              file == null ? Icons.upload_file_rounded : Icons.check_circle_rounded,
-              color: file == null ? muted : UColors.success,
-            ),
+            child: Icon(icon, color: color, size: 26),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 2),
                 Text(
-                  file?.name ?? "No file selected",
-                  style: TextStyle(color: muted, fontWeight: FontWeight.w700, fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: textMain,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: muted,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          PrimaryButton(text: "Upload", onTap: onPick),
         ],
-      ),
-    );
-  }
-
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Theme.of(context).brightness == Brightness.dark
-            ? UColors.darkGlass
-            : UColors.lightGlass,
       ),
     );
   }
