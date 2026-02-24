@@ -143,9 +143,11 @@ class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
   final BorderRadius radius;
+
   /// Preferred name used across screens.
   /// Optional for backward compatibility.
   final Color? border;
+
   /// Backward-compatible alias used by older code.
   final Color? borderColor;
   final Color? bg;
@@ -328,8 +330,10 @@ class PrimaryButton extends StatelessWidget {
     this.fg = Colors.black,
   })  : text = (text ?? label ?? ''),
         onTap = (onTap ?? onPressed),
-        assert(text != null || label != null, 'PrimaryButton requires text/label.'),
-        assert(onTap != null || onPressed != null, 'PrimaryButton requires onTap/onPressed.');
+        assert(text != null || label != null,
+            'PrimaryButton requires text/label.'),
+        assert(onTap != null || onPressed != null,
+            'PrimaryButton requires onTap/onPressed.');
 
   @override
   Widget build(BuildContext context) {
@@ -406,7 +410,6 @@ class UText extends StatelessWidget {
   }
 }
 
-
 class UniservePillNav extends StatelessWidget {
   /// Index mapping:
   /// 0 Home, 1 Explore, 2 Messages, 3 Market, 4 Profile
@@ -442,6 +445,7 @@ class UniservePillNav extends StatelessWidget {
       if (index == i) return;
 
       final nav = Navigator.of(context, rootNavigator: true);
+      final slide = i > index ? 'right' : 'left';
 
       const routes = <String>[
         '/home',
@@ -452,11 +456,12 @@ class UniservePillNav extends StatelessWidget {
       ];
 
       if (i == 0) {
-        nav.pushNamedAndRemoveUntil('/home', (r) => false);
+        nav.pushNamedAndRemoveUntil('/home', (r) => false,
+            arguments: {'slide': 'left'});
         return;
       }
 
-      nav.pushReplacementNamed(routes[i]);
+      nav.pushReplacementNamed(routes[i], arguments: {'slide': slide});
     }
 
     return SafeArea(
@@ -485,7 +490,8 @@ class UniservePillNav extends StatelessWidget {
                         BoxShadow(
                           blurRadius: 22,
                           offset: const Offset(0, 12),
-                          color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                          color: Colors.black
+                              .withValues(alpha: isDark ? 0.30 : 0.12),
                         ),
                       ],
                     ),
@@ -599,7 +605,9 @@ class UniservePillNav extends StatelessWidget {
                     height: 30,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: active ? Colors.white.withValues(alpha: 0.95) : Colors.transparent,
+                      color: active
+                          ? Colors.white.withValues(alpha: 0.95)
+                          : Colors.transparent,
                     ),
                     alignment: Alignment.center,
                     child: Icon(
@@ -621,7 +629,8 @@ class UniservePillNav extends StatelessWidget {
                         maxLines: 1,
                         style: TextStyle(
                           color: active ? activeBlue : muted,
-                          fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+                          fontWeight:
+                              active ? FontWeight.w900 : FontWeight.w700,
                           fontSize: 11,
                           height: 1.0,
                         ),

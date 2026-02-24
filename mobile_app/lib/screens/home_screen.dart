@@ -62,7 +62,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, dynamic>> _loadInner() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('Not signed in. Please login first.');
+      // Temporary bypass: Return dummy data if not logged in
+      return {
+        'user': {
+          'name': 'Guest User',
+          'avatarUrl': '',
+          'verified': false,
+          'studentId': 'GUEST',
+        },
+        'wallet': {'balance': 100.0},
+        'stats': {'ordersThisWeek': 0, 'savedThisMonth': 0, 'rating': 5.0},
+        'services': <Map<String, dynamic>>[],
+        'quick': <Map<String, dynamic>>[],
+        'recent': <Map<String, dynamic>>[],
+        'driver': {'registered': false, 'status': ''},
+      };
     }
 
     final uid = user.uid;
