@@ -1,5 +1,4 @@
-import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -15,9 +14,9 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
-  final _storage = FirebaseStorage.instance; // Firebase Storage (avatar upload)
 
   final _formKey = GlobalKey<FormState>();
 
@@ -28,7 +27,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   int _year = 0;
   String _photoUrl = "";
-  File? _picked;
+
+  XFile? _picked;
+  Uint8List? _pickedBytes;
 
   bool _loading = true;
   bool _saving = false;
@@ -90,12 +91,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _photoUrl = (d["photoUrl"] ?? u.photoURL ?? "").toString();
       _year = _asInt(d["year"]);
 
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _err = null;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _err = null;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -107,7 +107,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   int _asInt(dynamic v) {
     if (v is int) return v;
-    if (v is double) return v.round();
+    if (v is num) return v.round();
     return int.tryParse(v?.toString() ?? "") ?? 0;
   }
 
@@ -120,19 +120,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         maxWidth: 1200,
       );
       if (x == null) return;
-      setState(() => _picked = File(x.path));
+
+      final bytes = await x.readAsBytes();
+
+      if (!mounted) return;
+      setState(() {
+        _picked = x;
+        _pickedBytes = bytes;
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Image picker error: $e"), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text("Image picker error: $e"),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
 
-  Future<String> _uploadAvatar(String uid, File file) async {
+  Future<String> _uploadAvatarBytes(String uid, Uint8List bytes) async {
     // Upload ke Firebase Storage: users/{uid}/avatar.jpg
     final ref = _storage.ref().child("users/$uid/avatar.jpg");
-    final task = ref.putFile(file, SettableMetadata(contentType: "image/jpeg"));
+    final task = ref.putData(bytes, SettableMetadata(contentType: "image/jpeg"));
     await task;
     return await ref.getDownloadURL();
   }
@@ -153,8 +163,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       String photo = _photoUrl;
-      if (_picked != null) {
-        photo = await _uploadAvatar(u.uid, _picked!);
+
+      // ✅ universal upload: web/android/ios (bytes)
+      if (_pickedBytes != null) {
+        photo = await _uploadAvatarBytes(u.uid, _pickedBytes!);
       }
 
       final payload = {
@@ -171,7 +183,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       await _db.collection("users").doc(u.uid).set(payload, SetOptions(merge: true));
 
-      // Optional: sync FirebaseAuth displayName/photoURL (tak kacau db structure, cuma auth profile)
+      // Optional: sync FirebaseAuth displayName/photoURL
       await u.updateDisplayName(_name.text.trim());
       if (photo.isNotEmpty) await u.updatePhotoURL(photo);
 
@@ -235,10 +247,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                         child: Text(
                           _err!,
-                          style: TextStyle(color: isDark ? const Color(0xFFFFC2C2) : const Color(0xFF991B1B), fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            color: isDark ? const Color(0xFFFFC2C2) : const Color(0xFF991B1B),
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
 
+                    // Avatar card
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -259,7 +275,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             isDark: isDark,
                             border: border,
                             ink: ink,
-                            picked: _picked,
+                            pickedBytes: _pickedBytes,
                             photoUrl: _photoUrl,
                             name: _name.text.isEmpty ? "Student" : _name.text,
                             onPick: _pickImage,
@@ -279,8 +295,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 Wrap(
                                   spacing: 10,
                                   children: [
-                                    _ChipBtn(isDark: isDark, soft: soft, border: border, ink: ink, label: "Pick image", icon: Icons.photo_rounded, onTap: _pickImage),
-                                    if (_picked != null)
+                                    _ChipBtn(
+                                      isDark: isDark,
+                                      soft: soft,
+                                      border: border,
+                                      ink: ink,
+                                      label: "Pick image",
+                                      icon: Icons.photo_rounded,
+                                      onTap: _pickImage,
+                                    ),
+                                    if (_pickedBytes != null)
                                       _ChipBtn(
                                         isDark: isDark,
                                         soft: soft,
@@ -288,7 +312,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                         ink: ink,
                                         label: "Remove",
                                         icon: Icons.close_rounded,
-                                        onTap: () => setState(() => _picked = null),
+                                        onTap: () => setState(() {
+                                          _picked = null;
+                                          _pickedBytes = null;
+                                        }),
                                       ),
                                   ],
                                 )
@@ -301,6 +328,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                     const SizedBox(height: 14),
 
+                    // Form card
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -380,19 +408,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                             const SizedBox(height: 12),
 
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _YearPicker(
-                                    isDark: isDark,
-                                    border: border,
-                                    ink: ink,
-                                    sub: sub,
-                                    value: _year,
-                                    onChanged: (v) => setState(() => _year = v),
-                                  ),
-                                ),
-                              ],
+                            _YearPicker(
+                              isDark: isDark,
+                              border: border,
+                              ink: ink,
+                              sub: sub,
+                              value: _year,
+                              onChanged: (v) => setState(() => _year = v),
                             ),
 
                             const SizedBox(height: 14),
@@ -436,7 +458,7 @@ class _EditAvatar extends StatelessWidget {
   final bool isDark;
   final Color border;
   final Color ink;
-  final File? picked;
+  final Uint8List? pickedBytes;
   final String photoUrl;
   final String name;
   final VoidCallback onPick;
@@ -445,7 +467,7 @@ class _EditAvatar extends StatelessWidget {
     required this.isDark,
     required this.border,
     required this.ink,
-    required this.picked,
+    required this.pickedBytes,
     required this.photoUrl,
     required this.name,
     required this.onPick,
@@ -474,10 +496,14 @@ class _EditAvatar extends StatelessWidget {
           ],
         ),
         child: ClipOval(
-          child: picked != null
-              ? Image.file(picked!, fit: BoxFit.cover)
+          child: pickedBytes != null
+              ? Image.memory(pickedBytes!, fit: BoxFit.cover)
               : (photoUrl.isNotEmpty)
-                  ? Image.network(photoUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _Initials(ink: ink, name: name))
+                  ? Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _Initials(ink: ink, name: name),
+                    )
                   : _Initials(ink: ink, name: name),
         ),
       ),

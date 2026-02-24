@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -11,18 +10,20 @@ import '../screens/provider_dashboards.dart';
 import '../screens/express_driver_screen.dart';
 import '../screens/driver_transport_ui.dart';
 
-/// HomeScreen (Firebase-ready, premium UI)
+/// HomeScreen (Grab-like, kemas)
 ///
-/// ✅ Nav bawah kekal guna UniservePillNav(index: 0)
-/// ✅ No gradient (solid + glass + border only)
-/// ✅ Front-end focused: layout, UX, interactions; data from Firestore kalau ada
+/// ✅ Search bar atas (tap -> Explore)
+/// ✅ Grid categories kemas (Transport/Runner/Parcel/Print/Photo/Express/Marketplace/Barber)
+/// ✅ Wallet/Finance mini card
+/// ✅ Promo banner + Recommended carousel
+/// ✅ CTA (Verify / Become Driver / Driver Dashboard) kecil & sesuai phone kecil (horizontal strip)
+/// ✅ Bottom nav kekal: UniservePillNav(index: 0)
 ///
 /// Firestore minimum yang disokong:
 /// - users/{uid}: name, avatarUrl(optional), verified(optional), studentId(optional), balance(optional)
 /// - drivers/{uid} (optional): registered(bool), status(String)
 /// - users/{uid}/stats/summary (optional): ordersThisWeek(int), savedThisMonth(int), rating(num)
 /// - users/{uid}/activity (optional): title,type,when(Timestamp),amount,icon,color
-/// - app_config/home (optional): services(List<Map>), quick(List<Map>)
 class HomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   const HomeScreen({super.key, required this.onToggleTheme});
@@ -32,13 +33,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int navIndex = 0;
-
   late Future<Map<String, dynamic>> _homeFuture;
   bool _didSeedUserDoc = false;
-
-  // UI state
-  bool _servicesCompact = false;
 
   @override
   void initState() {
@@ -52,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<Map<String, dynamic>> _load() async {
-    // ✅ timeout supaya tak loading forever
     return _loadInner().timeout(
       const Duration(seconds: 8),
       onTimeout: () => throw Exception('Firebase timeout (8s). Check internet / rules.'),
@@ -61,30 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<Map<String, dynamic>> _loadInner() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      // Temporary bypass: Return dummy data if not logged in
-      return {
-        'user': {
-          'name': 'Guest User',
-          'avatarUrl': '',
-          'verified': false,
-          'studentId': 'GUEST',
-        },
-        'wallet': {'balance': 100.0},
-        'stats': {'ordersThisWeek': 0, 'savedThisMonth': 0, 'rating': 5.0},
-        'services': <Map<String, dynamic>>[],
-        'quick': <Map<String, dynamic>>[],
-        'recent': <Map<String, dynamic>>[],
-        'driver': {'registered': false, 'status': ''},
-      };
-    }
+    if (user == null) throw Exception('Not signed in. Please login first.');
 
     final uid = user.uid;
-    if (uid.isEmpty) {
-      throw Exception('Invalid user session (uid empty).');
-    }
+    if (uid.isEmpty) throw Exception('Invalid user session (uid empty).');
 
-    // ✅ ensure users/{uid} exists (once per session)
     if (!_didSeedUserDoc) {
       _didSeedUserDoc = true;
       await _seedUserDocIfMissing(uid: uid, user: user);
@@ -92,21 +68,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final fs = FirebaseFirestore.instance;
 
-    // --- read user doc
     final userSnap = await fs.collection('users').doc(uid).get();
     final userData = (userSnap.data() ?? <String, dynamic>{});
 
     final name = (userData['name'] ?? user.displayName ?? 'Student').toString();
     final avatarUrl = (userData['avatarUrl'] ?? user.photoURL ?? '').toString();
     final verified = (userData['verified'] == true);
+    final studentId = (userData['studentId'] ?? '').toString();
 
-    // --- wallet
     double balance = 0.0;
     final b0 = userData['balance'];
     if (b0 is num) balance = b0.toDouble();
-    final wallet = <String, dynamic>{'balance': balance};
 
-    // --- stats (optional)
     final statsRef = fs.collection('users').doc(uid).collection('stats').doc('summary');
     final statsSnap = await statsRef.get();
     final statsData = (statsSnap.data() ?? <String, dynamic>{});
@@ -116,19 +89,12 @@ class _HomeScreenState extends State<HomeScreen> {
       'rating': (statsData['rating'] is num) ? (statsData['rating'] as num).toDouble() : 0.0,
     };
 
-    // --- services & quick (optional app_config/home)
-    final cfgSnap = await fs.collection('app_config').doc('home').get();
-    final cfg = (cfgSnap.data() ?? <String, dynamic>{});
-    final services = _castListOfMap(cfg['services']);
-    final quick = _castListOfMap(cfg['quick']);
-
-    // --- recent activity (optional)
     final activityQs = await fs
         .collection('users')
         .doc(uid)
         .collection('activity')
         .orderBy('when', descending: true)
-        .limit(7)
+        .limit(6)
         .get();
 
     final recent = activityQs.docs.map((d) {
@@ -144,7 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
       };
     }).toList(growable: false);
 
-    // --- driver (optional)
     final driverSnap = await fs.collection('drivers').doc(uid).get();
     final driverData = (driverSnap.data() ?? <String, dynamic>{});
     final driver = <String, dynamic>{
@@ -157,12 +122,10 @@ class _HomeScreenState extends State<HomeScreen> {
         'name': name,
         'avatarUrl': avatarUrl,
         'verified': verified,
-        'studentId': (userData['studentId'] ?? '').toString(),
+        'studentId': studentId,
       },
-      'wallet': wallet,
+      'wallet': <String, dynamic>{'balance': balance},
       'stats': stats,
-      'services': services,
-      'quick': quick,
       'recent': recent,
       'driver': driver,
     };
@@ -183,12 +146,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  List<Map<String, dynamic>> _castListOfMap(dynamic v) {
-    if (v is! List) return const <Map<String, dynamic>>[];
-    return v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList(growable: false);
-    // ignore: unreachable_from_main
-  }
-
   String _formatWhen(dynamic when) {
     try {
       if (when is Timestamp) {
@@ -207,8 +164,6 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (k) {
       case 'run':
         return Icons.directions_run_rounded;
-      case 'laptop':
-        return Icons.laptop_rounded;
       case 'cut':
         return Icons.content_cut_rounded;
       case 'car':
@@ -219,18 +174,16 @@ class _HomeScreenState extends State<HomeScreen> {
         return Icons.print_rounded;
       case 'camera':
         return Icons.photo_camera_rounded;
-      case 'wallet':
-        return Icons.account_balance_wallet_rounded;
-      case 'grid':
-        return Icons.grid_view_rounded;
       case 'market':
         return Icons.storefront_rounded;
       case 'flash':
         return Icons.flash_on_rounded;
-      case 'chat':
-        return Icons.chat_bubble_rounded;
       case 'scan':
         return Icons.qr_code_scanner_rounded;
+      case 'chat':
+        return Icons.chat_bubble_rounded;
+      case 'wallet':
+        return Icons.account_balance_wallet_rounded;
       default:
         return Icons.star_rounded;
     }
@@ -264,10 +217,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final textMain = isDark ? UColors.darkText : UColors.lightText;
     final muted = isDark ? UColors.darkMuted : UColors.lightMuted;
+    final bg = isDark ? UColors.darkBg : UColors.lightBg;
 
     return Scaffold(
+      backgroundColor: bg,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
@@ -285,19 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final user = (data['user'] as Map?)?.cast<String, dynamic>() ?? {};
               final wallet = (data['wallet'] as Map?)?.cast<String, dynamic>() ?? {};
               final stats = (data['stats'] as Map?)?.cast<String, dynamic>() ?? {};
-
-              final services = ((data['services'] as List?) ?? const [])
-                  .cast<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
-              final recent = ((data['recent'] as List?) ?? const [])
-                  .cast<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
-              final quick = ((data['quick'] as List?) ?? const [])
-                  .cast<Map>()
-                  .map((e) => e.cast<String, dynamic>())
-                  .toList();
+              final recent = ((data['recent'] as List?) ?? const []).cast<Map>().map((e) => e.cast<String, dynamic>()).toList();
 
               final driver = (data['driver'] as Map?)?.cast<String, dynamic>() ?? {};
               final driverRegistered = driver['registered'] == true;
@@ -309,21 +253,6 @@ class _HomeScreenState extends State<HomeScreen> {
               final verified = (user['verified'] == true);
               final studentId = (user['studentId'] ?? '').toString();
               final balance = (wallet['balance'] as num?)?.toDouble() ?? 0.0;
-
-              // normalize: kalau config bagi Wallet -> jadi Photo
-              final servicesNorm = (services.isEmpty ? <Map<String, dynamic>>[] : services).map((s) {
-                final label = (s['label'] ?? '').toString().toLowerCase().trim();
-                if (label == 'wallet') {
-                  return {
-                    ...s,
-                    'label': 'Photo',
-                    'icon': 'camera',
-                    'route': '/photo',
-                    'color': s['color'] ?? 'purple',
-                  };
-                }
-                return s;
-              }).toList();
 
               return Stack(
                 children: [
@@ -340,35 +269,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           muted: muted,
                         ),
                       ),
-                      SliverToBoxAdapter(child: const SizedBox(height: 10)),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        sliver: SliverToBoxAdapter(
-                          child: _searchAndShortcuts(muted: muted),
-                        ),
-                      ),
-                      SliverToBoxAdapter(child: const SizedBox(height: 12)),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        sliver: SliverToBoxAdapter(
-                          child: _walletCardPremium(
-                            textMain: textMain,
-                            muted: muted,
-                            balance: balance,
-                            ordersThisWeek: (stats['ordersThisWeek'] as num?)?.toInt() ?? 0,
-                            savedThisMonth: (stats['savedThisMonth'] as num?)?.toInt() ?? 0,
-                            rating: (stats['rating'] as num?)?.toDouble() ?? 0.0,
-                            verified: verified,
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(child: const SizedBox(height: 14)),
 
-                      // CTAs: verify identity / become driver / driver dashboard
+                      // Search bar macam Grab (besar)
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
+                        sliver: SliverToBoxAdapter(
+                          child: _bigSearchBar(muted: muted),
+                        ),
+                      ),
+
+                      // CTA strip (kecil, sesuai phone kecik)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
-                          child: _ctaStrip(
+                          child: _ctaStripTiny(
                             verified: verified,
                             driverRegistered: driverRegistered,
                             showDriverDashboard: showDriverDashboard,
@@ -376,49 +290,55 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                      SliverToBoxAdapter(child: const SizedBox(height: 14)),
+                      SliverToBoxAdapter(child: const SizedBox(height: 12)),
 
-                      // Quick actions (wrap, no overflow)
+                      // Category grid (8 items, kemas)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
-                          child: _quickActions(quick: quick, muted: muted),
+                          child: _categoryGrid(muted: muted),
                         ),
                       ),
-                      SliverToBoxAdapter(child: const SizedBox(height: 18)),
+                      SliverToBoxAdapter(child: const SizedBox(height: 12)),
 
-                      // Services header
+                      // Finance / Wallet mini card (macam Grab)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
-                          child: _sectionHeader(
-                            title: 'Services',
-                            subtitle: 'Book in seconds, track in real time.',
+                          child: _financeMiniCard(
+                            textMain: textMain,
                             muted: muted,
-                            trailing: _segmentedCompactToggle(muted),
+                            balance: balance,
+                            ordersThisWeek: (stats['ordersThisWeek'] as num?)?.toInt() ?? 0,
+                            rating: (stats['rating'] as num?)?.toDouble() ?? 0.0,
+                            verified: verified,
                           ),
                         ),
                       ),
-                      SliverToBoxAdapter(child: const SizedBox(height: 10)),
+
+                      SliverToBoxAdapter(child: const SizedBox(height: 12)),
+
+                      // Promo banner
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
-                          child: _servicesGridResponsive(services: servicesNorm, muted: muted),
+                          child: _promoBanner(muted: muted),
                         ),
                       ),
+
                       SliverToBoxAdapter(child: const SizedBox(height: 18)),
 
-                      // For you / Promo
+                      // Recommended (carousel)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
                           child: _sectionHeader(
-                            title: 'For you',
-                            subtitle: 'Smart suggestions based on your campus routine.',
+                            title: 'Recommended',
+                            subtitle: 'Best picks around campus & nearby.',
                             muted: muted,
-                            trailing: TextButton(
+                            trailing: IconButton(
                               onPressed: () => Navigator.pushNamed(context, '/explore'),
-                              child: Text('Explore', style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
+                              icon: Icon(Icons.arrow_forward_rounded, color: muted),
                             ),
                           ),
                         ),
@@ -427,19 +347,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
-                          child: _forYouCarousel(muted: muted),
+                          child: _recommendedCarousel(muted: muted),
                         ),
                       ),
 
                       SliverToBoxAdapter(child: const SizedBox(height: 18)),
 
-                      // Recent activity
+                      // Recent activity (kemas, optional)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
                           child: _sectionHeader(
                             title: 'Recent activity',
-                            subtitle: 'Everything you did, in one place.',
+                            subtitle: 'Your latest bookings & wallet activity.',
                             muted: muted,
                             trailing: TextButton(
                               onPressed: () => Navigator.pushNamed(context, '/wallet'),
@@ -452,16 +372,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 18),
                         sliver: SliverToBoxAdapter(
-                          child: _recentActivity(recent: recent, textMain: textMain, muted: muted),
+                          child: _recentActivity(
+                            recent: recent,
+                            textMain: textMain,
+                            muted: muted,
+                          ),
                         ),
                       ),
 
-                      // bottom spacer for nav
                       SliverToBoxAdapter(child: const SizedBox(height: 190)),
                     ],
                   ),
 
-                  // AI assistant (solid, no gradient)
+                  // AI FAB (solid)
                   Positioned(
                     right: 18,
                     bottom: 96,
@@ -469,11 +392,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
 
                   // bottom nav (UNCHANGED)
-                  Positioned(
+                  const Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: UniservePillNav(index: navIndex),
+                    child: UniservePillNav(index: 0),
                   ),
                 ],
               );
@@ -484,7 +407,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ---------------- UI blocks ----------------
+  // ================= UI blocks =================
 
   Widget _topBar({
     required String name,
@@ -495,93 +418,59 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color muted,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : UColors.lightCard;
     final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+    final card = isDark ? UColors.darkCard : UColors.lightCard;
 
     final initial = name.isNotEmpty ? name.trim()[0].toUpperCase() : 'U';
     final subtitle = studentId.trim().isEmpty ? 'Campus services' : 'ID • ${studentId.trim()}';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
       child: Row(
         children: [
-          // Avatar
           Container(
-            width: 46,
-            height: 46,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: bg,
+              color: card,
               border: Border.all(color: border),
             ),
             child: ClipOval(
               child: (avatarUrl.trim().isEmpty)
-                  ? Center(
-                      child: Text(
-                        initial,
-                        style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 16),
-                      ),
-                    )
+                  ? Center(child: Text(initial, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)))
                   : Image.network(
                       avatarUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Center(
-                        child: Text(
-                          initial,
-                          style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 16),
-                        ),
+                        child: Text(initial, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
                       ),
                     ),
             ),
           ),
           const SizedBox(width: 12),
-
-          // Greeting
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Hi, ${_firstName(name)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textMain),
-                      ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Hi, ${_firstName(name)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: textMain),
                     ),
-                    const SizedBox(width: 8),
-                    if (verified)
-                      _pill(
-                        label: 'Verified',
-                        icon: Icons.verified_rounded,
-                        color: UColors.success,
-                        muted: muted,
-                      )
-                    else
-                      _pill(
-                        label: 'Unverified',
-                        icon: Icons.shield_outlined,
-                        color: UColors.warning,
-                        muted: muted,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: muted, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 8),
+                  _tinyStatusDot(verified: verified),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600)),
+            ]),
           ),
-
-          // Actions
           IconButton(
-            tooltip: 'Search',
+            tooltip: 'Explore',
             onPressed: () => Navigator.pushNamed(context, '/explore'),
             icon: Icon(Icons.search_rounded, color: muted),
           ),
@@ -595,97 +484,227 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _searchAndShortcuts({required Color muted}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final inputBg = isDark ? UColors.darkInput : UColors.lightInput;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return Column(
-      children: [
-        // Search (read-only, tap -> Explore)
-        GestureDetector(
-          onTap: () => Navigator.pushNamed(context, '/explore'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: inputBg,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: border),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded, color: muted),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Search services, shops, or “Where to?”',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: UColors.gold.withAlpha(18),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: UColors.gold.withAlpha(70)),
-                  ),
-                  child: Text(
-                    'Discover',
-                    style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Shortcuts row
-        LayoutBuilder(
-          builder: (context, c) {
-            final wide = c.maxWidth >= 380;
-            return Row(
-              children: [
-                Expanded(
-                  child: _shortcutTile(
-                    label: 'Scan',
-                    subtitle: 'QR / Receipt',
-                    icon: Icons.qr_code_scanner_rounded,
-                    color: UColors.cyan,
-                    onTap: () => Navigator.pushNamed(context, '/scan'),
-                    muted: muted,
-                    compact: !wide,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _shortcutTile(
-                    label: 'Wallet',
-                    subtitle: 'Top up & history',
-                    icon: Icons.account_balance_wallet_rounded,
-                    color: UColors.gold,
-                    onTap: () => Navigator.pushNamed(context, '/wallet'),
-                    muted: muted,
-                    compact: !wide,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ],
+  Widget _tinyStatusDot({required bool verified}) {
+    final c = verified ? UColors.success : UColors.warning;
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: c,
+        shape: BoxShape.circle,
+      ),
     );
   }
 
-  Widget _walletCardPremium({
+  Widget _bigSearchBar({required Color muted}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? UColors.darkCard : Colors.white;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/explore'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, color: muted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Search places / “Where to?”',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: muted, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: UColors.gold.withAlpha(18),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: UColors.gold.withAlpha(70)),
+              ),
+              child: Text('Discover', style: TextStyle(color: UColors.gold, fontWeight: FontWeight.w900, fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ctaStripTiny({
+    required bool verified,
+    required bool driverRegistered,
+    required bool showDriverDashboard,
+    required Color muted,
+  }) {
+    final items = <_TinyCtaItem>[];
+
+    if (!verified) {
+      items.add(_TinyCtaItem(
+        label: 'Verify',
+        icon: Icons.verified_rounded,
+        color: UColors.warning,
+        onTap: () => Navigator.pushNamed(context, '/verify-identity'),
+      ));
+    }
+
+    if (!driverRegistered) {
+      items.add(_TinyCtaItem(
+        label: 'Become driver',
+        icon: Icons.directions_car_rounded,
+        color: UColors.info,
+        onTap: () => Navigator.pushNamed(context, '/driver-register'),
+      ));
+    } else if (showDriverDashboard) {
+      items.add(_TinyCtaItem(
+        label: 'Driver dashboard',
+        icon: Icons.speed_rounded,
+        color: UColors.success,
+        onTap: _openDriverDashboard,
+      ));
+    }
+
+    // Always show 1 helper chip
+    items.add(_TinyCtaItem(
+      label: 'Help centre',
+      icon: Icons.support_agent_rounded,
+      color: UColors.cyan,
+      onTap: () => Navigator.pushNamed(context, '/help'),
+    ));
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+    final bg = isDark ? UColors.darkCard : UColors.lightCard;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: border),
+      ),
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          scrollDirection: Axis.horizontal,
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) => _tinyCtaChip(items[i], muted: muted),
+        ),
+      ),
+    );
+  }
+
+  Widget _tinyCtaChip(_TinyCtaItem it, {required Color muted}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    return InkWell(
+      onTap: it.onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: it.color.withAlpha(12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(it.icon, size: 18, color: it.color),
+            const SizedBox(width: 8),
+            Text(it.label, style: TextStyle(color: muted, fontWeight: FontWeight.w900, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryGrid({required Color muted}) {
+    // Fixed 8 categories (Grab-style)
+    final items = <_CatItem>[
+      _CatItem(label: 'Transporter', icon: Icons.directions_car_rounded, color: UColors.warning, route: '/transport'),
+  _CatItem(label: 'Runner', icon: Icons.directions_run_rounded, color: UColors.info, route: '/runner'),
+  _CatItem(label: 'Barber', icon: Icons.content_cut_rounded, color: UColors.teal, route: '/barber'),
+  _CatItem(label: 'Express', icon: Icons.flash_on_rounded, color: UColors.pink, route: '/express'),
+  _CatItem(label: 'Print', icon: Icons.print_rounded, color: UColors.gold, route: '/print'),
+  _CatItem(label: 'Photo', icon: Icons.photo_camera_rounded, color: UColors.purple, route: '/photo'),
+  _CatItem(label: 'Parcel', icon: Icons.local_shipping_rounded, color: UColors.gold, route: '/parcel'),
+  _CatItem(label: 'More', icon: Icons.grid_view_rounded, color: UColors.cyan, route: '/explore'),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        final crossAxisCount = (w >= 420) ? 4 : 4; // maintain kemas macam Grab (4)
+        final spacing = 12.0;
+
+        return GridView.builder(
+          itemCount: items.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
+            mainAxisExtent: 98,
+          ),
+          itemBuilder: (_, i) => _catTile(items[i], muted: muted),
+        );
+      },
+    );
+  }
+
+  Widget _catTile(_CatItem it, {required Color muted}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? UColors.darkCard : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, it.route),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: border),
+        ),
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: it.color.withAlpha(14),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: it.color.withAlpha(70)),
+              ),
+              child: Icon(it.icon, color: it.color, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(it.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w900)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _financeMiniCard({
     required Color textMain,
     required Color muted,
     required double balance,
     required int ordersThisWeek,
-    required int savedThisMonth,
     required double rating,
     required bool verified,
   }) {
@@ -693,325 +712,167 @@ class _HomeScreenState extends State<HomeScreen> {
     final bg = isDark ? UColors.darkCard : UColors.lightCard;
     final border = isDark ? UColors.darkBorder : UColors.lightBorder;
 
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, '/wallet'),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: UColors.gold.withAlpha(18),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: UColors.gold.withAlpha(70)),
+              ),
+              child: const Icon(Icons.account_balance_wallet_rounded, color: UColors.gold),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Finance', style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  'RM ${balance.toStringAsFixed(2)}',
+                  style: TextStyle(color: textMain, fontWeight: FontWeight.w900, fontSize: 18),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Orders $ordersThisWeek • Rating ${rating <= 0 ? '—' : rating.toStringAsFixed(1)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12),
+                ),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: (verified ? UColors.success : UColors.warning).withAlpha(12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: border),
+              ),
+              child: Text(
+                verified ? 'Verified' : 'Unverified',
+                style: TextStyle(color: muted, fontWeight: FontWeight.w900, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _promoBanner({required Color muted}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? UColors.darkCard : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: border),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: UColors.gold.withAlpha(18),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: UColors.gold.withAlpha(70)),
-                ),
-                child: const Icon(Icons.account_balance_wallet_rounded, color: UColors.gold),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Balance', style: TextStyle(color: muted, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(
-                      'RM ${balance.toStringAsFixed(2)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: textMain, fontSize: 22, fontWeight: FontWeight.w900),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/wallet'),
-                child: const Text('Manage'),
-              ),
-            ],
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: UColors.teal.withAlpha(14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: UColors.teal.withAlpha(70)),
+            ),
+            child: const Icon(Icons.stars_rounded, color: UColors.teal),
           ),
-          const SizedBox(height: 14),
-
-          // quick wallet actions
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _actionPill(
-                label: 'Top up',
-                icon: Icons.add_rounded,
-                color: UColors.success,
-                muted: muted,
-                onTap: () => Navigator.pushNamed(context, '/wallet'),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('More ways to earn points', style: TextStyle(color: muted, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 2),
+              Text(
+                'Use partner services for transport, errands & entertainment.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: muted, fontWeight: FontWeight.w600),
               ),
-              _actionPill(
-                label: 'Pay',
-                icon: Icons.nfc_rounded,
-                color: UColors.info,
-                muted: muted,
-                onTap: () => Navigator.pushNamed(context, '/scan'),
-              ),
-              _actionPill(
-                label: 'History',
-                icon: Icons.receipt_long_rounded,
-                color: UColors.cyan,
-                muted: muted,
-                onTap: () => Navigator.pushNamed(context, '/wallet'),
-              ),
-              if (!verified)
-                _actionPill(
-                  label: 'Verify',
-                  icon: Icons.verified_rounded,
-                  color: UColors.warning,
-                  muted: muted,
-                  onTap: () => Navigator.pushNamed(context, '/verify-identity'),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          // Stats row
-          Row(
-            children: [
-              Expanded(child: _statCard(label: 'Orders', value: '$ordersThisWeek', icon: Icons.shopping_bag_rounded, color: UColors.purple, muted: muted)),
-              const SizedBox(width: 10),
-              Expanded(child: _statCard(label: 'Saved', value: '$savedThisMonth', icon: Icons.bookmark_rounded, color: UColors.cyan, muted: muted)),
-              const SizedBox(width: 10),
-              Expanded(child: _statCard(label: 'Rating', value: rating <= 0 ? '—' : rating.toStringAsFixed(1), icon: Icons.star_rounded, color: UColors.gold, muted: muted)),
-            ],
+              const SizedBox(height: 6),
+              Text('Explore now', style: TextStyle(color: UColors.info, fontWeight: FontWeight.w900)),
+            ]),
           ),
         ],
       ),
     );
   }
 
-  Widget _ctaStrip({
-    required bool verified,
-    required bool driverRegistered,
-    required bool showDriverDashboard,
-    required Color muted,
-  }) {
-    final items = <Widget>[];
-
-    if (!verified) {
-      items.add(_ctaCard(
-        title: 'Verify your identity',
-        subtitle: 'Unlock driver mode & safer bookings.',
-        icon: Icons.verified_rounded,
-        color: UColors.warning,
-        cta: 'Verify',
-        onTap: () => Navigator.pushNamed(context, '/verify-identity'),
-        muted: muted,
-      ));
-    }
-
-    if (!driverRegistered) {
-      items.add(_ctaCard(
-        title: 'Become a driver',
-        subtitle: 'Earn on campus with flexible hours.',
-        icon: Icons.directions_car_rounded,
-        color: UColors.info,
-        cta: 'Register',
-        onTap: () => Navigator.pushNamed(context, '/driver-register'),
-        muted: muted,
-      ));
-    } else if (showDriverDashboard) {
-      items.add(_ctaCard(
-        title: 'Driver dashboard',
-        subtitle: 'Go online & manage requests.',
-        icon: Icons.speed_rounded,
-        color: UColors.success,
-        cta: 'Open',
-        onTap: _openDriverDashboard,
-        muted: muted,
-      ));
-    }
-
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return LayoutBuilder(
-      builder: (context, c) {
-        if (c.maxWidth < 420 || items.length == 1) {
-          return Column(children: [
-            for (int i = 0; i < items.length; i++) ...[
-              items[i],
-              if (i != items.length - 1) const SizedBox(height: 10),
-            ]
-          ]);
-        }
-
-        return Row(
-          children: [
-            Expanded(child: items[0]),
-            if (items.length > 1) ...[
-              const SizedBox(width: 10),
-              Expanded(child: items[1]),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _quickActions({required List<Map<String, dynamic>> quick, required Color muted}) {
-    // fallback kalau config kosong
-    final fallback = <Map<String, dynamic>>[
-      {'label': 'Transport', 'route': '/transport', 'icon': 'car', 'color': 'warning'},
-      {'label': 'Runner', 'route': '/runner', 'icon': 'run', 'color': 'info'},
-      {'label': 'Parcel', 'route': '/parcel', 'icon': 'box', 'color': 'success'},
-      {'label': 'Print', 'route': '/print', 'icon': 'print', 'color': 'gold'},
-      {'label': 'Marketplace', 'route': '/marketplace', 'icon': 'market', 'color': 'gold'},
-      {'label': 'AI', 'route': '/ai', 'icon': 'star', 'color': 'teal'},
-    ];
-
-    final list = quick.isEmpty ? fallback : quick;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader(
-          title: 'Quick actions',
-          subtitle: 'Jump to what you need right now.',
-          muted: muted,
-          trailing: TextButton(
-            onPressed: () => Navigator.pushNamed(context, '/explore'),
-            child: Text('All', style: TextStyle(color: muted, fontWeight: FontWeight.w800)),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: list.take(8).map((q) {
-            final label = (q['label'] ?? '').toString();
-            final route = (q['route'] ?? '').toString();
-            final icon = _iconFromKey((q['icon'] ?? 'star').toString());
-            final color = _colorFromKey((q['color'] ?? 'gold').toString());
-
-            return _quickChip(
-              label: label,
-              icon: icon,
-              color: color,
-              muted: muted,
-              onTap: () {
-                if (route.isEmpty) return;
-                Navigator.pushNamed(context, route);
-              },
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _servicesGridResponsive({required List<Map<String, dynamic>> services, required Color muted}) {
-    // fallback kalau backend return kosong
-    final fallback = <Map<String, dynamic>>[
-      {'label': 'Transport', 'route': '/transport', 'icon': 'car', 'color': 'warning'},
-      {'label': 'Runner', 'route': '/runner', 'icon': 'run', 'color': 'info'},
-      {'label': 'Parcel', 'route': '/parcel', 'icon': 'box', 'color': 'success'},
-      {'label': 'Printing', 'route': '/print', 'icon': 'print', 'color': 'gold'},
-      {'label': 'Photo', 'route': '/photo', 'icon': 'camera', 'color': 'purple'},
-      {'label': 'Express', 'route': '/express', 'icon': 'flash', 'color': 'pink'},
-      {'label': 'Marketplace', 'route': '/marketplace', 'icon': 'market', 'color': 'gold'},
-      {'label': 'Barber', 'route': '/barber', 'icon': 'cut', 'color': 'cyan'},
-    ];
-    final list = services.isEmpty ? fallback : services;
-
-    return LayoutBuilder(
-      builder: (context, c) {
-        final w = c.maxWidth;
-        final crossAxisCount = _servicesCompact
-            ? (w >= 420 ? 5 : 4)
-            : (w >= 420 ? 4 : 3);
-
-        final itemExtent = _servicesCompact ? 86.0 : 104.0;
-        final spacing = 12.0;
-
-        return GridView.builder(
-          itemCount: list.length.clamp(0, 12),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: spacing,
-            crossAxisSpacing: spacing,
-            mainAxisExtent: itemExtent,
-          ),
-          itemBuilder: (_, i) {
-            final s = list[i];
-            final label = (s['label'] ?? '').toString();
-            final route = (s['route'] ?? '').toString();
-            final icon = _iconFromKey((s['icon'] ?? 'star').toString());
-            final color = _colorFromKey((s['color'] ?? 'gold').toString());
-
-            return _serviceTile(
-              label: label,
-              icon: icon,
-              color: color,
-              muted: muted,
-              compact: _servicesCompact,
-              onTap: () {
-                if (route.isEmpty) return;
-                Navigator.pushNamed(context, route);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _forYouCarousel({required Color muted}) {
-    // Pure UI suggestions (routes exist)
-    final cards = <_ForYouCard>[
-      _ForYouCard(
-        title: 'Request a ride',
-        subtitle: 'Fast pick-up around campus zones.',
-        icon: Icons.directions_car_rounded,
-        color: UColors.warning,
-        route: '/transport',
-      ),
-      _ForYouCard(
-        title: 'Find a runner',
-        subtitle: 'Food, errands, and quick delivery.',
-        icon: Icons.directions_run_rounded,
-        color: UColors.info,
-        route: '/runner',
-      ),
-      _ForYouCard(
-        title: 'Print in minutes',
-        subtitle: 'Upload > pay > collect.',
-        icon: Icons.print_rounded,
-        color: UColors.gold,
-        route: '/print',
-      ),
-      _ForYouCard(
-        title: 'Ask UniServe AI',
-        subtitle: 'Help with tasks & campus info.',
-        icon: Icons.auto_awesome_rounded,
-        color: UColors.teal,
-        route: '/ai',
-      ),
+  Widget _recommendedCarousel({required Color muted}) {
+    final cards = <_RecoCard>[
+      _RecoCard(title: 'Transport', subtitle: 'Fast pickup around campus', icon: Icons.directions_car_rounded, color: UColors.warning, route: '/transport'),
+      _RecoCard(title: 'Runner', subtitle: 'Food & errands delivery', icon: Icons.directions_run_rounded, color: UColors.info, route: '/runner'),
+      _RecoCard(title: 'Printing', subtitle: 'Upload → pay → collect', icon: Icons.print_rounded, color: UColors.gold, route: '/print'),
+      _RecoCard(title: 'Marketplace', subtitle: 'Buy & sell with students', icon: Icons.storefront_rounded, color: UColors.purple, route: '/marketplace'),
     ];
 
     return SizedBox(
-      height: 134,
+      height: 138,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: cards.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final it = cards[i];
-          return _forYouTile(it, muted);
-        },
+        itemBuilder: (_, i) => _recoTile(cards[i], muted: muted),
+      ),
+    );
+  }
+
+  Widget _recoTile(_RecoCard it, {required Color muted}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? UColors.darkCard : UColors.lightCard;
+    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
+
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, it.route),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 240,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: it.color.withAlpha(14),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: it.color.withAlpha(70)),
+              ),
+              child: Icon(it.icon, color: it.color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 2),
+                Text(it.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12)),
+              ]),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right_rounded, color: muted),
+          ],
+        ),
       ),
     );
   }
@@ -1021,9 +882,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color textMain,
     required Color muted,
   }) {
-    if (recent.isEmpty) {
-      return _emptyRecent(muted: muted);
-    }
+    if (recent.isEmpty) return _emptyRecent(muted: muted);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? UColors.darkCard : UColors.lightCard;
@@ -1047,8 +906,7 @@ class _HomeScreenState extends State<HomeScreen> {
               textMain: textMain,
               muted: muted,
             ),
-            if (i != recent.length - 1)
-              Divider(height: 1, thickness: 1, color: border),
+            if (i != recent.length - 1) Divider(height: 1, thickness: 1, color: border),
           ],
         ],
       ),
@@ -1089,30 +947,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: textMain, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    when.isEmpty ? ' ' : when,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12),
-                  ),
-                ],
-              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: textMain, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(when.isEmpty ? ' ' : when, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12)),
+              ]),
             ),
-            if (amountText.isNotEmpty)
-              Text(
-                amountText,
-                style: TextStyle(color: textMain, fontWeight: FontWeight.w900),
-              ),
+            if (amountText.isNotEmpty) Text(amountText, style: TextStyle(color: textMain, fontWeight: FontWeight.w900)),
             const SizedBox(width: 6),
             Icon(Icons.chevron_right_rounded, color: muted),
           ],
@@ -1153,10 +994,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, '/explore'),
-            child: const Text('Start'),
-          ),
+          TextButton(onPressed: () => Navigator.pushNamed(context, '/explore'), child: const Text('Start')),
         ],
       ),
     );
@@ -1186,20 +1024,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Stack(
           children: [
-            const Center(
-              child: Icon(Icons.auto_awesome_rounded, color: UColors.teal, size: 26),
-            ),
+            const Center(child: Icon(Icons.auto_awesome_rounded, color: UColors.teal, size: 26)),
             Positioned(
               right: 10,
               top: 10,
               child: Container(
                 width: 10,
                 height: 10,
-                decoration: BoxDecoration(
-                  color: UColors.teal,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: bg, width: 2),
-                ),
+                decoration: BoxDecoration(color: UColors.teal, shape: BoxShape.circle, border: Border.all(color: bg, width: 2)),
               ),
             ),
           ],
@@ -1208,34 +1040,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _sectionHeader({
+    required String title,
+    required String subtitle,
+    required Color muted,
+    Widget? trailing,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+          ]),
+        ),
+        if (trailing != null) trailing,
+      ],
+    );
+  }
+
   Widget _loading(Color muted) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 140),
       children: [
-        Container(
-          height: 58,
-          decoration: BoxDecoration(
-            color: muted.withAlpha(16),
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
+        Container(height: 54, decoration: BoxDecoration(color: muted.withAlpha(16), borderRadius: BorderRadius.circular(18))),
         const SizedBox(height: 12),
-        Container(
-          height: 150,
-          decoration: BoxDecoration(
-            color: muted.withAlpha(12),
-            borderRadius: BorderRadius.circular(22),
-          ),
-        ),
+        Container(height: 110, decoration: BoxDecoration(color: muted.withAlpha(12), borderRadius: BorderRadius.circular(22))),
         const SizedBox(height: 12),
-        Container(
-          height: 260,
-          decoration: BoxDecoration(
-            color: muted.withAlpha(10),
-            borderRadius: BorderRadius.circular(22),
-          ),
-        ),
+        Container(height: 220, decoration: BoxDecoration(color: muted.withAlpha(10), borderRadius: BorderRadius.circular(22))),
       ],
     );
   }
@@ -1258,453 +1098,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ---------------- small components ----------------
-
-  Widget _sectionHeader({
-    required String title,
-    required String subtitle,
-    required Color muted,
-    Widget? trailing,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        if (trailing != null) trailing,
-      ],
-    );
-  }
-
-  Widget _segmentedCompactToggle(Color muted) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkInput : UColors.lightInput;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _segButton(
-            label: 'Comfort',
-            active: !_servicesCompact,
-            onTap: () => setState(() => _servicesCompact = false),
-            muted: muted,
-          ),
-          _segButton(
-            label: 'Compact',
-            active: _servicesCompact,
-            onTap: () => setState(() => _servicesCompact = true),
-            muted: muted,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _segButton({
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-    required Color muted,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : Colors.white;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? bg : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          border: active ? Border.all(color: border) : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 12,
-            color: active ? null : muted,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _pill({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color muted,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withAlpha(18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontWeight: FontWeight.w900, color: muted, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  Widget _shortcutTile({
-    required String label,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-    required Color muted,
-    required bool compact,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : UColors.lightCard;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: EdgeInsets.all(compact ? 12 : 14),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: color.withAlpha(16),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: color.withAlpha(70)),
-              ),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.chevron_right_rounded, color: muted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionPill({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color muted,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withAlpha(12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 8),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w900, color: muted)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _quickChip({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color muted,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : UColors.lightCard;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                color: color.withAlpha(14),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: color.withAlpha(70)),
-              ),
-              child: Icon(icon, size: 16, color: color),
-            ),
-            const SizedBox(width: 10),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w900, color: muted)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _serviceTile({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required Color muted,
-    required bool compact,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : UColors.lightCard;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        padding: EdgeInsets.all(compact ? 10 : 12),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: border),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: compact ? 40 : 46,
-              height: compact ? 40 : 46,
-              decoration: BoxDecoration(
-                color: color.withAlpha(14),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: color.withAlpha(70)),
-              ),
-              child: Icon(icon, color: color, size: compact ? 22 : 24),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w900, color: muted, fontSize: compact ? 11 : 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statCard({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-    required Color muted,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final inputBg = isDark ? UColors.darkInput : UColors.lightInput;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: inputBg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 11)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _ctaCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required String cta,
-    required VoidCallback onTap,
-    required Color muted,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : UColors.lightCard;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: color.withAlpha(14),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: color.withAlpha(70)),
-              ),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: color.withAlpha(12),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: border),
-              ),
-              child: Text(cta, style: TextStyle(color: muted, fontWeight: FontWeight.w900)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _forYouTile(_ForYouCard it, Color muted) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? UColors.darkCard : UColors.lightCard;
-    final border = isDark ? UColors.darkBorder : UColors.lightBorder;
-
-    return InkWell(
-      onTap: () => Navigator.pushNamed(context, it.route),
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        width: 240,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: it.color.withAlpha(14),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: it.color.withAlpha(70)),
-              ),
-              child: Icon(it.icon, color: it.color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 2),
-                  Text(it.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontWeight: FontWeight.w600, fontSize: 12)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.chevron_right_rounded, color: muted),
-          ],
-        ),
-      ),
-    );
-  }
-
   String _firstName(String name) {
     final n = name.trim();
     if (n.isEmpty) return 'there';
@@ -1713,8 +1106,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openDriverDashboard() {
-    // ✅ preserve existing deep links to dashboards
-    // Choose based on DriverModeStore.activeService if present (fallback transport)
     final svc = DriverModeStore.activeService.value ?? 'transporter';
 
     if (svc == 'runner') {
@@ -1729,19 +1120,43 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DriverHomeScreen()));
       return;
     }
-
-    // Generic provider dashboards
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProviderDashboardsScreen()));
   }
 }
 
-class _ForYouCard {
+class _TinyCtaItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _TinyCtaItem({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+}
+
+class _CatItem {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String route;
+  const _CatItem({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.route,
+  });
+}
+
+class _RecoCard {
   final String title;
   final String subtitle;
   final IconData icon;
   final Color color;
   final String route;
-  const _ForYouCard({
+  const _RecoCard({
     required this.title,
     required this.subtitle,
     required this.icon,
