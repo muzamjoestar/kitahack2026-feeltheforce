@@ -43,8 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _homeFuture = _load());
-    await _homeFuture;
+    // Dummy refresh for dev
+    await Future.delayed(const Duration(seconds: 1));
   }
 
   Future<Map<String, dynamic>> _load() async {
