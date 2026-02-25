@@ -56,7 +56,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<Map<String, dynamic>> _loadInner() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('Not signed in. Please login first.');
+    if (user == null) {
+     if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context).pushReplacementNamed('/login');
+        });
+      }
+      return {};
+    }
 
     final uid = user.uid;
     if (uid.isEmpty) throw Exception('Invalid user session (uid empty).');

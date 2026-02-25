@@ -89,27 +89,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final User? user = userCredential.user;
 
       if (user != null) {
-        // 2. Check Firestore for existing verified profile
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-
-        if (doc.exists && (doc.data()?['isVerified'] == true)) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-          Navigator.pushReplacementNamed(context, '/dashboard');
-        } else {
-          // 3. Reject & Sign Out
-          await FirebaseAuth.instance.signOut();
-          await googleSignIn.signOut();
-
-          if (!mounted) return;
-          setState(() => _loading = false);
-          _toast(
-              "Access Denied: You must register manually and get verified first.",
-              isError: true);
-        }
+        // TEMPORARY: Bypass verification for development
+        if (!mounted) return;
+        setState(() => _loading = false);
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false);
       }
     } catch (e) {
       if (!mounted) return;
