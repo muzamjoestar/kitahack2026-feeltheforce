@@ -1661,7 +1661,7 @@ class _ActivityFeed extends StatelessWidget {
             title: 'Recent activity',
             subtitle: 'A quick log of what you did',
             trailing: TextButton(
-              onPressed: () => _Toast.show(context, 'View all (UI)'),
+              onPressed: () => Navigator.pushNamed(context, '/wallet'),
               child: const Text('View all'),
             ),
           ),
@@ -1956,7 +1956,7 @@ class _SupportAndLegal extends StatelessWidget {
             icon: Icons.support_agent_rounded,
             title: 'Contact support',
             subtitle: 'Chat with support team',
-            onTap: () => _Toast.show(context, 'Support chat (UI)'),
+            onTap: () => Navigator.pushNamed(context, '/chat-inbox'),
           ),
           _TileAction(
             isDark: isDark,
@@ -1970,7 +1970,7 @@ class _SupportAndLegal extends StatelessWidget {
             icon: Icons.policy_rounded,
             title: 'Privacy policy',
             subtitle: 'How we handle your data',
-            onTap: () => _Toast.show(context, 'Privacy policy (UI)'),
+            onTap: () => Navigator.pushNamed(context, '/privacy-policy'),
           ),
           _TileAction(
             isDark: isDark,
