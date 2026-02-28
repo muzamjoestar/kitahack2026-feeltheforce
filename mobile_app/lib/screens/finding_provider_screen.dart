@@ -56,22 +56,34 @@ class _FindingProviderScreenState extends State<FindingProviderScreen> {
     _matchTimer = Timer(Duration(seconds: sec), () {
       final job = store.maybeById(widget.jobId);
       if (job == null) return;
-      if (job.status != JobStatus.requested) return; // cancelled/accepted already
+      if (job.status != JobStatus.requested)
+        return; // cancelled/accepted already
 
-      store.assignProvider(widget.jobId, providerName: _pickProviderName(), providerRating: 4.8);
+      store.assignProvider(widget.jobId,
+          providerName: _pickProviderName(), providerRating: 4.8);
       store.acceptJob(widget.jobId);
       store.systemMessage(widget.jobId, 'Rider found. You can chat now.');
-      store.startAutoProgress(widget.jobId); // boleh buang bila backend update status sendiri
+      store.startAutoProgress(
+          widget.jobId); // boleh buang bila backend update status sendiri
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ServiceJobTrackScreen(jobId: widget.jobId)),
+        MaterialPageRoute(
+            builder: (_) => ServiceJobTrackScreen(jobId: widget.jobId)),
       );
     });
   }
 
   String _pickProviderName() {
-    const names = ['Aiman', 'Syafiq', 'Haziq', 'Farah', 'Nurin', 'Aqil', 'Hakim'];
+    const names = [
+      'Aiman',
+      'Syafiq',
+      'Haziq',
+      'Farah',
+      'Nurin',
+      'Aqil',
+      'Hakim'
+    ];
     final r = Random();
     return names[r.nextInt(names.length)];
   }
@@ -88,7 +100,6 @@ class _FindingProviderScreenState extends State<FindingProviderScreen> {
       title: 'Finding rider',
       actions: [
         IconButton(
-          tooltip: 'Cancel',
           onPressed: _cancel,
           icon: const Icon(Icons.close_rounded),
         ),
@@ -108,14 +119,17 @@ class _FindingProviderScreenState extends State<FindingProviderScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
                       color: UColors.cyan.withValues(alpha: 0.18),
-                      border: Border.all(color: UColors.cyan.withValues(alpha: 0.35)),
+                      border: Border.all(
+                          color: UColors.cyan.withValues(alpha: 0.35)),
                     ),
-                    child: const Icon(Icons.radar_rounded, color: UColors.cyan, size: 30),
+                    child: const Icon(Icons.radar_rounded,
+                        color: UColors.cyan, size: 30),
                   ),
                   const SizedBox(height: 12),
                   const Text(
                     'Searching…',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
                   AnimatedSwitcher(
@@ -126,7 +140,10 @@ class _FindingProviderScreenState extends State<FindingProviderScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.70),
                       ),
                     ),
                   ),

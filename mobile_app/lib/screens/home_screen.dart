@@ -9,6 +9,7 @@ import '../screens/runner_dashboard_screen.dart';
 import '../screens/provider_dashboards.dart';
 import '../screens/express_driver_screen.dart';
 import '../screens/driver_transport_ui.dart';
+import 'finding_provider_screen.dart';
 
 /// HomeScreen (Grab-like, kemas)
 ///
@@ -485,6 +486,11 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Settings',
             onPressed: () => Navigator.pushNamed(context, '/settings'),
             icon: Icon(Icons.settings_rounded, color: muted),
+          ),
+          IconButton(
+            tooltip: 'Wallet',
+            onPressed: () => Navigator.pushNamed(context, '/wallet'),
+            icon: Icon(Icons.account_balance_wallet_outlined, color: muted),
           ),
         ],
       ),
