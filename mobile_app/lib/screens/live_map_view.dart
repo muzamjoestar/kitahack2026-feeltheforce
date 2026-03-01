@@ -23,6 +23,8 @@ class _LiveMapViewState extends State<LiveMapView> {
   final Completer<GoogleMapController> _controller = Completer();
   Set<Polyline> _polylines = {};
   Set<Marker> _markers = {};
+  LatLng? _driverPosition;
+  Timer? _movementTimer;
 
   // Default to IIUM Gombak if coordinates are missing/loading
   static const CameraPosition _kDefault = CameraPosition(
@@ -33,7 +35,16 @@ class _LiveMapViewState extends State<LiveMapView> {
   @override
   void initState() {
     super.initState();
-    _updateMap();
+    _markers = _createMarkers();
+    if (widget.destination != null) {
+      _fetchRoute();
+    }
+  }
+
+  @override
+  void dispose() {
+    _movementTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -90,6 +101,17 @@ class _LiveMapViewState extends State<LiveMapView> {
       ));
     }
 
+    // Driver Marker (Simulated)
+    if (_driverPosition != null) {
+      markers.add(Marker(
+        markerId: const MarkerId('driver'),
+        position: _driverPosition!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+        infoWindow: const InfoWindow(title: "Driver"),
+        zIndex: 2,
+      ));
+    }
+
     return markers;
   }
 
@@ -127,10 +149,34 @@ class _LiveMapViewState extends State<LiveMapView> {
             ),
           };
         });
+        _startDriverSimulation(result.points);
       }
     } catch (e) {
       debugPrint("Error fetching route: $e");
     }
+  }
+
+  void _startDriverSimulation(List<PointLatLng> points) {
+    if (points.isEmpty) return;
+    _movementTimer?.cancel();
+    int index = 0;
+
+    _movementTimer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (index >= points.length) {
+        timer.cancel();
+        return;
+      }
+      final p = points[index];
+      setState(() {
+        _driverPosition = LatLng(p.latitude, p.longitude);
+        _markers = _createMarkers();
+      });
+      index++;
+    });
   }
 
   Future<void> _fitBounds() async {

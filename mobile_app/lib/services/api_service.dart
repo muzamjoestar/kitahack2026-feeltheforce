@@ -7,7 +7,7 @@ import 'package:mime/mime.dart';
 class ApiService {
 
   // TODO: Replace this with your actual Ngrok URL (e.g., https://a1b2-c3d4.ngrok-free.app)
-  static const String baseUrl = "https://janett-prepituitary-funereally.ngrok-free.dev";
+  static const String baseUrl = "https://uniserve-backend-951442291563.us-central1.run.app";
 
   static Future<Map<String, dynamic>?> scanMatricCard(File imageFile) async {
     try {

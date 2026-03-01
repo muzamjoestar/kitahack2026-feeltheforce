@@ -150,8 +150,8 @@ class _UniserveAppState extends State<UniserveApp> {
       darkTheme: AppTheme.dark(),
 
       // Use your LoginScreen as the entry point
-      // home: const SplashScreen(),
-      home: HomeScreen(onToggleTheme: toggleTheme),
+      home: const SplashScreen(),
+      // home: HomeScreen(onToggleTheme: toggleTheme),
 
       routes: {
         '/login': (_) => const LoginScreen(),
